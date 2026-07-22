@@ -1,7 +1,7 @@
 ---
 id: T-001
 title: Establish the integration test harness
-status: review
+status: done
 owner: backend-engineer
 branch: task/T-001-test-harness
 depends-on: []
@@ -51,3 +51,13 @@ Found and worked around, but explicitly out of scope to fix here (flagged for a 
 - `axon.axonserver.enabled` is not set anywhere in `application.yml`, even though there is no Axon Server in the local stack (not in `docker-compose.yml`, not in `TECH_STACK.md`); the harness sets it to `false` in its own test config to avoid reconnect-attempt noise, but the same gap exists for `docker-compose up -d`.
 
 Nothing remains for T-001 itself. The three findings above are real bugs in existing scaffold config, independent of this task, and worth their own quick fix commits.
+
+### 2026-07-22 - review
+
+`mvn verify` reconfirmed green independently (real Docker, BUILD SUCCESS, 12/12 tests, JaCoCo 95% floor met) before sending to review.
+
+`code-reviewer`: **approve with nits**. One should-fix, non-blocking: `DockerUnavailableFailureModeTest`/`DockerStrategyProbe` forks a child JVM via `ProcessBuilder` without clearing the environment, so a `DOCKER_HOST` env var set on the host (Colima, remote Docker contexts, some CI runners) would leak into the child and could make the probe actually reach a Docker daemon instead of exercising the "no strategy found" path it claims to test — passes today only because this machine has no `DOCKER_HOST` set. Two nits: the `mvn verify passes locally and in CI` acceptance box is checked though CI doesn't exist yet in this repo (already disclosed in the same line, so not misleading); individual `@Test`/lifecycle methods lack per-method Javadoc required by `.claude/rules/java-docs.md` (class-level Javadoc is thorough). Everything else - reusability of the shared base, ArchUnit scope, container version choices, pom.xml scoping, commit hygiene, comment style - confirmed sound.
+
+`security-reviewer`: no blockers. Two low findings: a JWT HMAC key literal hardcoded in `src/test/resources/test-harness-application.yml` (harmless today - nothing consumes it before T-004, and the file isn't packaged into the boot jar - but a literal violation of SECURITY_POLICY's "no secrets in versioned config" and worth generating at test setup instead before it becomes a copy-paste habit); `testcontainers-r2dbc` is missing from the `TECH_STACK.md` Testcontainers module table (doc-sync nit, not a supply-chain issue - resolves through the same Boot-managed BOM as its siblings).
+
+**Verdict: approved.** Merged to `main` with `--no-ff`. Follow-ups worth their own quick tasks (none block T-002 or later work): clear the child-process environment in `DockerStrategyProbe`'s `ProcessBuilder`; generate the test JWT key at runtime instead of a literal in versioned YAML; add `testcontainers-r2dbc` to `TECH_STACK.md`; plus the three pre-existing scaffold config bugs already listed above (mongo:7.0-alpine tag doesn't exist, Jackson property breaks Boot 4.1 context startup, `axon.axonserver.enabled` unset).
