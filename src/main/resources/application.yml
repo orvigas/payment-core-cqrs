@@ -47,7 +47,7 @@ com:
   orvigas:
     security:
       jwt:
-        secret: ${JWT_SECRET:changeme-secret-key-used-in-dev-only-minimum-256-bits-required}
+        secret: ${JWT_SECRET}
         expiration: ${JWT_EXPIRATION:15m}
         issuer: ${JWT_ISSUER:payment-core}
         audience: ${JWT_AUDIENCE:payment-core}
