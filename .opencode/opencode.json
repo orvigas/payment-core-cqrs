@@ -26,10 +26,16 @@
           "git switch main*": "deny",
           "git merge*": "deny",
           "git rebase*": "ask",
+          "git push origin task/*": "allow",
+          "git push -u origin task/*": "allow",
+          "git push*main*": "deny",
           "git push*": "deny",
           "git commit-tree*": "deny",
           "git update-ref*": "deny",
           "git worktree*": "ask",
+          "gh pr create*": "allow",
+          "gh pr merge*": "deny",
+          "gh pr *": "ask",
           "*": "ask"
         }
       }

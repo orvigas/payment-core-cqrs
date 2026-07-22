@@ -12,17 +12,17 @@ backlog -> in-progress -> review -> done
 Roles per stage: `architect` before claiming (design, when needed), `backend-engineer` and `test-engineer` during in-progress, `code-reviewer` plus `security-reviewer` (when security-relevant) at review.
 
 1. **Design (when needed).** Features without an existing design in `architecture/` or `knowledge/domain/` go to the `architect` agent first. Output: a design doc, and an ADR if a decision was made. Small fixes skip this step.
-2. **Claim.** Set `owner` and `status: in-progress` in the task file, commit that change directly to `main`. The ledger commit is the lock: check `tasks/TASKS.md` for overlapping in-progress scopes before claiming.
+2. **Claim.** Set `owner` and `status: in-progress` in the task file, commit that change directly to `main`. The ledger commit is the lock: check `tasks/TASKS.md` for overlapping in-progress scopes before claiming. This is the one exception to the pull-request rule below — it's a metadata-only coordination signal, not code, and needs to land immediately to actually function as a lock.
 3. **Implement.** Work happens on `task/T-NNN-slug`, branched from current `main`. The `backend-engineer` agent implements; the `test-engineer` agent is pulled in when coverage or test infrastructure needs dedicated work. Commits follow Conventional Commits.
-4. **Verify.** `mvn verify` green on the branch is the entry ticket to review; it includes the JaCoCo floor and the ArchUnit architecture rules. Set `status: review`, append a handoff-log entry describing what was done and anything touched outside scope.
-5. **Review.** `code-reviewer` reviews the branch diff; `security-reviewer` additionally reviews anything touching auth, payment endpoints, logging, or dependencies (T-004 style tasks always get both). Blockers send the task back to `in-progress` with findings in the handoff log.
-6. **Merge.** On approval, merge the branch to `main` (no fast-forward, so task boundaries stay visible in history), set `status: done`, update `TASKS.md`, delete the branch.
+4. **Verify.** `mvn verify` green on the branch is the entry ticket to review; it includes the JaCoCo floor and the ArchUnit architecture rules. Set `status: review`, append a handoff-log entry describing what was done and anything touched outside scope, push the branch, and open a pull request against `main` (`gh pr create`). No code reaches `main` by any other path — not a local `git merge`, not a direct push — regardless of which tool or agent produced it. `backend-engineer` opens the PR as part of handing off; it does not merge it.
+5. **Review.** `code-reviewer` reviews the PR diff; `security-reviewer` additionally reviews anything touching auth, payment endpoints, logging, or dependencies (T-004 style tasks always get both). Blockers send the task back to `in-progress` with findings in the handoff log; the PR stays open until the fix is pushed and review passes again.
+6. **Merge.** Once every required reviewer has approved, the orchestrating Claude Code session merges the PR itself (`gh pr merge --merge --delete-branch`) — this authority is granted here as standing policy, not negotiated per PR, so merging doesn't wait on a separate human go-ahead once approval is on record. Set `status: done`, update `TASKS.md` (the PR merge commit or a same-branch follow-up commit does this).
 
 ## Concurrency rules
 
 - One task, one owner, one branch. Never two agents on one branch.
 - Tasks with overlapping scope sections must not be in progress at the same time; the second one waits or the scopes get renegotiated.
-- Only ledger updates (claim, status changes) are committed directly to `main`; all code goes through a task branch and review.
+- Only ledger updates (claim, status changes) are committed directly to `main`; every code change reaches `main` exclusively through a reviewed, approved, merged pull request. No agent — including Claude — merges or pushes code to `main` directly, ever. This applies equally to Claude Code and OpenCode sessions: same rule, same enforcement, no tool gets a shortcut the other doesn't have.
 - Rebase the task branch on `main` before requesting review if `main` moved.
 
 ## When things go wrong
