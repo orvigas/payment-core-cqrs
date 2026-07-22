@@ -3,6 +3,7 @@ package com.orvigas.security.error;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +17,6 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 
-import java.util.Optional;
-
 /**
  * Translates application exceptions into RFC 7807 problem details.
  *
@@ -25,6 +24,7 @@ import java.util.Optional;
  */
 @ControllerAdvice
 @RequiredArgsConstructor
+@Slf4j
 public class GlobalErrorHandler {
 
     private static final String PROBLEM_TYPE_PREFIX = "https://api.orvigas.com/errors/";
@@ -51,8 +51,12 @@ public class GlobalErrorHandler {
 
     @ExceptionHandler({ServerWebInputException.class, ConstraintViolationException.class})
     public Mono<ResponseEntity<ProblemDetail>> handleValidation(ServerWebExchange exchange, Exception ex) {
-        String detail = Optional.ofNullable(ex.getMessage()).orElse("Invalid request");
-        return Mono.just(badRequest(exchange, detail));
+        // Jackson's parse-failure messages can embed the offending input or internal
+        // parser detail, so the client only ever gets a fixed string; the real cause
+        // goes to the server log against the request's correlation id.
+        log.warn("Rejected malformed request body [{}]: {}",
+                exchange.getRequest().getId(), ex.getClass().getSimpleName(), ex);
+        return Mono.just(badRequest(exchange, "Invalid request content"));
     }
 
     @ExceptionHandler(RequestNotPermitted.class)
