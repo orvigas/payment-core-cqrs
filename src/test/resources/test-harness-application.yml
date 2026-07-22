@@ -1,0 +1,47 @@
+# Self-contained configuration for integration tests started through
+# AbstractIntegrationTest. This deliberately replaces src/main/resources/
+# application.yml (via spring.config.location) rather than layering on top
+# of it: that file's spring.jackson.serialization.write-dates-as-timestamps
+# key does not exist under Jackson 3's SerializationFeature enum (Spring
+# Boot 4.1 moved Jackson binding to the tools.jackson.databind package,
+# which dropped that constant), so any context that loads it fails to
+# start. See the T-001 handoff log - fixing that key is main-application
+# config, out of this task's scope, but a real bug worth fixing separately.
+#
+# Datasource/Mongo connection details come from @ServiceConnection against
+# the running Testcontainers instances, not from static properties here.
+
+spring:
+  application:
+    name: payment-core
+
+  webflux:
+    base-path: /api/v1
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          key-value: test-harness-secret-key-minimum-256-bits-required-for-hmac-sha
+
+axon:
+  eventhandling:
+    processors:
+      events:
+        mode: subscribing
+  serializer:
+    events: jackson
+    messages: jackson
+  axonserver:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: WARN
+    com.orvigas: INFO

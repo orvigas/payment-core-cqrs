@@ -285,6 +285,20 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Boot's PostgresR2dbcContainerConnectionDetailsFactory (in
+             spring-boot-r2dbc) needs org.testcontainers.r2dbc.R2DBCDatabaseContainer
+             at runtime to back @ServiceConnection for R2DBC; testcontainers-postgresql
+             implements that interface but does not pull in the module that
+             declares it. Missing this produces a ClassNotFoundException deep in
+             context startup, not a dependency-resolution error. Same 1.x-to-2.x
+             rename as the other testcontainers-* artifacts: the module is
+             "testcontainers-r2dbc", not the 1.x "r2dbc". -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-r2dbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-testcontainers</artifactId>
@@ -332,6 +346,18 @@
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <release>${java.version}</release>
+                    <!-- On this JDK/compiler-plugin combination, javac no longer
+                         discovers annotation processors from a plain -classpath
+                         entry; without an explicit processor path Lombok's
+                         annotations compile silently as no-ops (no error, no
+                         generated code). See .claude/knowledge/spring-boot-4-upgrade.md. -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
 
