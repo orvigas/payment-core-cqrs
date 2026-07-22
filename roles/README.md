@@ -1,6 +1,6 @@
 # Roles
 
-Roles are defined as executable subagent definitions in `.claude/agents/`, which is the canonical location; this directory intentionally holds no duplicate charters so the two cannot drift. OpenCode and other tools find the same role expectations through the root `AGENTS.md`.
+Roles are defined as executable subagent definitions in `.claude/agents/`, which is the canonical location; this directory intentionally holds no duplicate charters so the two cannot drift. OpenCode and other tools find the same role expectations through `.opencode/AGENTS.md`.
 
 Current roles:
 

@@ -127,7 +127,7 @@ Commits follow Conventional Commits.
 
 This repository is built to be worked on by multiple coding agents (Claude Code, OpenCode, or others) under one shared set of rules:
 
-- `AGENTS.md` at the repo root points any AGENTS.md-aware tool at the canonical instructions in `.claude/CLAUDE.md` and `.claude/rules/`. `opencode.json` wires the same instructions into OpenCode.
+- `.opencode/AGENTS.md` points any AGENTS.md-aware tool at the canonical instructions in `.claude/CLAUDE.md` and `.claude/rules/`. `.opencode/opencode.json` wires the same instructions into OpenCode.
 - `.claude/agents/` defines five roles as invocable subagents: `architect`, `backend-engineer`, `test-engineer`, `code-reviewer`, `security-reviewer`.
 - `tasks/` is a claim-based ledger — one task, one owner, one branch — so parallel agents don't collide. `workflow/DEVELOPMENT_WORKFLOW.md` defines the backlog → in-progress → review → done lifecycle.
 - Slash commands `/new-task`, `/implement`, `/review`, and `/adr` make that workflow invocable rather than just documented.
