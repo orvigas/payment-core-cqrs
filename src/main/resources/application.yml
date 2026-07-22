@@ -1,0 +1,151 @@
+spring:
+  application:
+    name: payment-core
+  profiles:
+    active: local
+
+  data:
+    mongodb:
+      auto-index-creation: true
+      database: payment-core
+      uri: mongodb://localhost:27017/payment-core
+
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/payment_core
+    username: payment_user
+    password: payment_password
+    pool:
+      max-size: 20
+      min-idle: 5
+      validation-query: SELECT 1
+
+  flyway:
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        linger.ms: 10
+        batch.size: 16384
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: payment-core-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: '*'
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          key-value: changeme-secret-key-used-in-dev-only-minimum-256-bits-required
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: true
+    deserialization:
+      fail-on-unknown-properties: false
+
+  jpa:
+    open-in-view: false
+
+  webflux:
+    base-path: /api/v1
+
+axon:
+  eventhandling:
+    processors:
+      events:
+        mode: subscribing
+  serializer:
+    events: jackson
+    messages: jackson
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+    brave:
+      span-joining-enabled: false
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+logging:
+  level:
+    root: INFO
+    com.orvigas: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.kafka: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+  logback:
+    loki-config:
+      enabled: true
+      url: http://localhost:3100/loki/api/v1/push
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+    min-response-size: 1024
+  error:
+    include-message: always
+    include-stacktrace: on_param
+
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+resilience4j:
+  ratelimiter:
+    instances:
+      login:
+        register-health-indicator: true
+        limit-refresh-period: 1m
+        limit-for-period: 5
+      payment:
+        register-health-indicator: true
+        limit-refresh-period: 1s
+        limit-for-period: 100
+  circuitbreaker:
+    instances:
+      payment-provider:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30000
+        minimum-number-of-calls: 5
+  retry:
+    instances:
+      payment-provider:
+        max-attempts: 3
+        wait-duration: 1000
+  timelimiter:
+    instances:
+      payment-provider:
+        cancel-running-future: true
+        timeout-duration: 10s
