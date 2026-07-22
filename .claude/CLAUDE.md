@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an **early-stage scaffold** for a Payment Core platform built on DDD, CQRS, Event Sourcing, and Saga patterns. The build and infrastructure skeleton exists: `pom.xml` (Axon + reactive MongoDB write layer, R2DBC read layer), `docker-compose.yml` with the full local stack, `application.yml`, the monitoring configs under `monitoring/`, and the application entry point. No domain, API, or persistence code has been written yet — `services/`, `shared/`, `architecture/`, `quality/`, `roles/`, `tasks/`, and `workflow/` are still empty and will be filled in as the project develops. `governance/TECH_STACK.md` is current and authoritative for versions; the domain model is documented in `knowledge/domain/`, and architecture decisions live in `knowledge/decisions/` (start with ADR-001 for the Axon/MongoDB event store).
 
-`.opencode/AGENTS.md` mirrors this file for non-Claude tools (OpenCode and others). This file and `.claude/rules/` are canonical; keep `AGENTS.md` a thin pointer so the two cannot drift.
+`.opencode/agents/AGENTS.md` mirrors this file for non-Claude tools (OpenCode and others). This file and `.claude/rules/` are canonical; keep `AGENTS.md` a thin pointer so the two cannot drift.
 
 ## Governance Docs (read before implementing anything)
 
