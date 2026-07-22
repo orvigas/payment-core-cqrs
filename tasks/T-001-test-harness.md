@@ -1,9 +1,9 @@
 ---
 id: T-001
 title: Establish the integration test harness
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: backend-engineer
+branch: task/T-001-test-harness
 depends-on: []
 ---
 
