@@ -29,8 +29,8 @@ Swagger UI: `/swagger-ui.html`. OpenAPI spec: `/v3/api-docs`.
 
 | Component | Version | Notes |
 |---|---|---|
-| Axon Framework | 4.10.5 | CQRS orchestration; command handling, event sourcing, aggregate lifecycle |
-| Axon MongoDB Extension | 4.10.5 | Event store, snapshot store, and token store backed by MongoDB |
+| Axon Framework | 4.10.4 | CQRS orchestration; command handling, event sourcing, aggregate lifecycle. 4.10.5 was pinned originally but never existed on Maven Central; 4.10.4 closes the 4.10.x line |
+| Axon MongoDB Extension | 4.10.0 (via axon-bom) | Event store, snapshot store, and token store backed by MongoDB; the extension versions independently and the 4.10.4 BOM pins it to 4.10.0 |
 | Spring Data MongoDB | via Boot BOM | Reactive document persistence for write projections and command models |
 | mongodb-driver-reactivestreams | via Boot BOM | Async MongoDB driver for reactive stack |
 | MongoDB (runtime) | 7.0-alpine (Docker image) | Event store and command model storage |
@@ -100,9 +100,10 @@ The app talks to `otel-collector`, not Jaeger directly, so the same spans feed b
 | Component | Version | Purpose |
 |---|---|---|
 | JUnit 5 (Jupiter) | via Boot BOM | Test framework |
-| Mockito (`mockito-inline`) | 5.2.0 | Mocking, with the dynamic agent enabled via surefire `argLine` for modern Java |
+| Mockito (`mockito-core`) | via Boot BOM | Comes with `spring-boot-starter-test`; attached as a java agent through the surefire `argLine` because JDK 21+ blocks dynamic self-attachment. The discontinued `mockito-inline` artifact must not be declared — inline mocking is the Mockito 5 default |
 | reactor-test | via Boot BOM | `StepVerifier` — the reactive equivalent of a plain assertion |
-| Testcontainers (`testcontainers`, `junit-jupiter`, `postgresql`, `spring-boot-testcontainers`) | via Boot BOM | Real Postgres per test run; R2DBC has no H2-equivalent in-memory option, and the schema relies on Postgres-specific behavior |
+| Testcontainers 2.x (`testcontainers`, `testcontainers-junit-jupiter`, `testcontainers-postgresql`, `testcontainers-mongodb`, `spring-boot-testcontainers`) | via Boot BOM (2.0.5) | Real Postgres and MongoDB per test run; R2DBC has no H2-equivalent in-memory option. Boot 4.1 manages Testcontainers 2.x, which renamed the module artifacts — the 1.x names (`junit-jupiter`, `postgresql`, `mongodb`) no longer resolve |
+| ArchUnit (`archunit-junit5`) | 1.4.0 | Enforces ARCHITECTURE_RULES in `mvn verify` (layering, no field injection, no JPA, no blocking on reactive types) |
 | spring-kafka-test | 4.1.0 | Embedded Kafka broker for isolated consumer/producer tests |
 | JaCoCo | 0.8.12 | Java 23-compatible coverage; `mvn verify` enforces a 95% instruction-coverage minimum |
 

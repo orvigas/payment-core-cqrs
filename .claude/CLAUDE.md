@@ -28,7 +28,7 @@ This is an **early-stage scaffold** for a Payment Core platform built on DDD, CQ
 ## Target Stack (from TECH_STACK.md)
 
 - **Java 21, Spring Boot 4.1.x, Maven.** Fully reactive: Spring WebFlux end to end (`Mono`/`Flux`, no JPA/Hibernate). The one intentional blocking exception is `@KafkaListener` methods, which run on Kafka consumer threads, not the Netty event loop.
-- **CQRS split (see ADR-001):** Axon Framework 4.10.5 on the command side with a **MongoDB 7** event store (Axon MongoDB extension, reactive Spring Data MongoDB); **Postgres 15** on the query side via Spring Data R2DBC for read projections, populated by Kafka consumers and eventually consistent.
+- **CQRS split (see ADR-001):** Axon Framework 4.10.4 on the command side with a **MongoDB 7** event store (Axon MongoDB extension, reactive Spring Data MongoDB); **Postgres 15** on the query side via Spring Data R2DBC for read projections, populated by Kafka consumers and eventually consistent.
 - **Postgres connection paths:** R2DBC for application traffic, JDBC solely for Flyway migrations (Flyway has no R2DBC support). Migrations cover the read schema only and live in `src/main/resources/db/migration`.
 - **Kafka** (Spring Kafka) with topics `payment-initiated`, `payment-charged`, `payment-completed`, `payment-failed`.
 - **Security:** stateless JWT (JJWT, HMAC-SHA256, `parseSignedClaims()` only), BCrypt, Resilience4j rate limiting on login/payment endpoints. Reactive security chain (`ServerHttpSecurity`) — auth context must propagate via Reactor context, not thread-locals.

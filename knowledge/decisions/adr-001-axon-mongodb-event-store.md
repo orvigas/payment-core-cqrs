@@ -14,7 +14,7 @@ The platform is committed to CQRS and event sourcing (see `governance/VISION.md`
 
 ## Decision
 
-Option 3. Axon Framework 4.10.5 handles command dispatch, aggregate lifecycle, and event sourcing. The event store, snapshots, and tracking tokens live in MongoDB 7 (Axon MongoDB extension, reactive Spring Data MongoDB driver). Postgres 15 via R2DBC holds only read projections, populated by Kafka consumers. Kafka remains the bridge between the write and read sides.
+Option 3. Axon Framework 4.10.4 handles command dispatch, aggregate lifecycle, and event sourcing. The event store, snapshots, and tracking tokens live in MongoDB 7 (Axon MongoDB extension, reactive Spring Data MongoDB driver). Postgres 15 via R2DBC holds only read projections, populated by Kafka consumers. Kafka remains the bridge between the write and read sides.
 
 ## Rationale
 
@@ -27,7 +27,7 @@ Option 3. Axon Framework 4.10.5 handles command dispatch, aggregate lifecycle, a
 - Two databases to operate (MongoDB + Postgres) plus Kafka: more moving parts locally and in production; docker-compose carries the full set.
 - Read models are eventually consistent by construction; anything needing read-your-writes must query the command side or wait on the projection.
 - Flyway migrations cover the read schema only; the event store is schema-less but needs deliberate indexing (aggregate id + sequence number).
-- Axon 4.10.5 requires Spring Boot 4.1.x; the versions must move together.
+- Axon 4.10.x is paired here with Spring Boot 4.1.x; the versions must move together. The 4.10.5 pin recorded earlier never existed on Maven Central; 4.10.4 is the last release of that line.
 - Testcontainers must cover both MongoDB and Postgres; there is no in-memory substitute for either path.
 
 ## References

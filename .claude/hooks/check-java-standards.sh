@@ -14,6 +14,10 @@ except Exception:
 
 [[ "$file_path" == *.java && -f "$file_path" ]] || exit 0
 
+# The ArchUnit rules file names the banned patterns in string literals; it is
+# the enforcement, not a violation.
+[[ "$file_path" == */architecture/ArchitectureRulesTest.java ]] && exit 0
+
 violations=""
 
 check() {

@@ -11,6 +11,14 @@ In July 2026 the governance docs were updated to target Spring Boot 4.1.0 (GA Ju
 - **Resilience4j: swap `resilience4j-spring-boot3` for `resilience4j-spring-boot4`**, available since 2.4.0. The new artifact was initially omitted from the resilience4j BOM, so declare its version explicitly rather than relying on the BOM (resilience4j issues 2351, 2427).
 - **Micrometer artifacts follow the Boot BOM.** The old explicit pins (`micrometer-registry-prometheus` 1.15.12, `micrometer-tracing-bridge-brave` 1.5.12) matched Boot 3.5's managed versions; re-pinning them under Boot 4.1 would downgrade what the BOM manages. TECH_STACK.md now marks them "via Boot BOM".
 
+## Found by the first real build (2026-07-22)
+
+The pom had never been built until the quality gate was wired up; the first `mvn verify` exposed three more Boot-4-era issues:
+
+- **Axon 4.10.5 does not exist.** The 4.10.x line on Maven Central ends at 4.10.4 (latest overall: 4.13.3). The 4.10.4 `axon-bom` manages the MongoDB extension at 4.10.0 — the extension versions independently of the framework. A pinned version is only trustworthy after a build has resolved it.
+- **Testcontainers 2.x renamed its module artifacts.** Boot 4.1 manages `testcontainers-bom` 2.0.5; the 1.x artifact ids `junit-jupiter`, `postgresql`, and `mongodb` no longer resolve. The new names are `testcontainers-junit-jupiter`, `testcontainers-postgresql`, `testcontainers-mongodb`.
+- **Mockito setup was doubly broken.** `mockito-inline` is discontinued (inline mocking is the Mockito 5 default; the artifact ends at 5.2.0), and attaching mockito-core 5.2.0 as a `-javaagent` crashes the JVM at startup (`Agent_OnLoad: instrument`) because agent support only arrived around 5.14. Worse, the hardcoded surefire `argLine` silently replaced JaCoCo's `prepare-agent` argument, which would have produced empty coverage data. Fix: drop `mockito-inline`, resolve the BOM-managed jar via the dependency plugin's `properties` goal, and compose `argLine` as `@{argLine} -javaagent:${org.mockito:mockito-core:jar}`.
+
 ## Why 4.1.0 and not 4.0.x
 
 4.1.0 is the latest stable line (active support to July 2027); 4.0.x support ends December 2026. New projects should target 4.1.
