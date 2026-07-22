@@ -18,11 +18,14 @@ spring:
   webflux:
     base-path: /api/v1
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          key-value: test-harness-secret-key-minimum-256-bits-required-for-hmac-sha
+com:
+  orvigas:
+    security:
+      jwt:
+        secret: test-harness-secret-key-minimum-256-bits-required-for-hmac-sha
+        expiration: 15m
+        issuer: payment-core-test
+        audience: payment-core-test
 
 axon:
   eventhandling:
@@ -40,6 +43,16 @@ management:
     web:
       exposure:
         include: health,info
+
+resilience4j:
+  ratelimiter:
+    instances:
+      login:
+        limit-refresh-period: 1m
+        limit-for-period: 5
+      payment:
+        limit-refresh-period: 1s
+        limit-for-period: 100
 
 logging:
   level:

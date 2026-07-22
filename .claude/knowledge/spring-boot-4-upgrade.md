@@ -31,6 +31,11 @@ Why it matters: `CODING_STANDARD.md` mandates `@RequiredArgsConstructor`/`@Slf4j
 
 Prevention: covered structurally now (the fix is in `pom.xml`), and the harness's own `ApplicationContextLoadTest` uses `@RequiredArgsConstructor` for its constructor injection, so a regression here would resurface immediately as a compile failure rather than staying latent again.
 
+## More Boot-4 artifact renames found during T-004 (2026-07-22)
+
+- **`spring-boot-starter-aop` is now `spring-boot-starter-aspectj`.** The old artifact id is gone in Boot 4.1. Without the new starter, AspectJ-based AOP is not configured, and beans like `RateLimiterAspect` are never created even though AspectJ is on the classpath.
+- **`spring-boot-webtestclient` is a separate test artifact.** The `@AutoConfigureWebTestClient` annotation moved from `org.springframework.boot.test.autoconfigure.web.reactive` to `org.springframework.boot.webtestclient.autoconfigure`. If the import fails or the `WebTestClient` bean is missing, add the artifact and update the import.
+
 ## Why 4.1.0 and not 4.0.x
 
 4.1.0 is the latest stable line (active support to July 2027); 4.0.x support ends December 2026. New projects should target 4.1.
