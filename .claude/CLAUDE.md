@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project State
 
-This is a **greenfield scaffold** for a Payment Core platform built on DDD, CQRS, Event Sourcing, and Saga patterns. No application code, `pom.xml`, or `docker-compose.yml` exists yet — only the governance docs and empty directories (`architecture/`, `knowledge/`, `quality/`, `roles/`, `services/`, `shared/`, `tasks/`, `workflow/`) that will be filled in as the project develops. `governance/TECH_STACK.md` describes the target stack the implementation must converge on; treat references in it to files like `pom.xml` as the intended end state, not the current one.
+This is an **early-stage scaffold** for a Payment Core platform built on DDD, CQRS, Event Sourcing, and Saga patterns. The build and infrastructure skeleton exists: `pom.xml` (Axon + reactive MongoDB write layer, R2DBC read layer), `docker-compose.yml` with the full local stack, `application.yml`, the monitoring configs under `monitoring/`, and the application entry point. No domain, API, or persistence code has been written yet — `services/`, `shared/`, `architecture/`, `quality/`, `roles/`, `tasks/`, and `workflow/` are still empty and will be filled in as the project develops. `governance/TECH_STACK.md` is current and authoritative for versions; the domain model is documented in `knowledge/domain/`, and architecture decisions live in `knowledge/decisions/` (start with ADR-001 for the Axon/MongoDB event store).
+
+`AGENTS.md` at the repo root mirrors this file for non-Claude tools (OpenCode and others). This file and `.claude/rules/` are canonical; keep `AGENTS.md` a thin pointer so the two cannot drift.
 
 ## Governance Docs (read before implementing anything)
 
@@ -25,8 +27,9 @@ This is a **greenfield scaffold** for a Payment Core platform built on DDD, CQRS
 
 ## Target Stack (from TECH_STACK.md)
 
-- **Java 21, Spring Boot 4.1.x, Maven.** Fully reactive: Spring WebFlux + Spring Data R2DBC (`Mono`/`Flux` end to end, no JPA/Hibernate). The one intentional blocking exception is `@KafkaListener` methods, which run on Kafka consumer threads, not the Netty event loop.
-- **Postgres 15** with two connection paths: R2DBC for application traffic, JDBC solely for Flyway migrations (Flyway has no R2DBC support). Migrations live in `src/main/resources/db/migration`.
+- **Java 21, Spring Boot 4.1.x, Maven.** Fully reactive: Spring WebFlux end to end (`Mono`/`Flux`, no JPA/Hibernate). The one intentional blocking exception is `@KafkaListener` methods, which run on Kafka consumer threads, not the Netty event loop.
+- **CQRS split (see ADR-001):** Axon Framework 4.10.5 on the command side with a **MongoDB 7** event store (Axon MongoDB extension, reactive Spring Data MongoDB); **Postgres 15** on the query side via Spring Data R2DBC for read projections, populated by Kafka consumers and eventually consistent.
+- **Postgres connection paths:** R2DBC for application traffic, JDBC solely for Flyway migrations (Flyway has no R2DBC support). Migrations cover the read schema only and live in `src/main/resources/db/migration`.
 - **Kafka** (Spring Kafka) with topics `payment-initiated`, `payment-charged`, `payment-completed`, `payment-failed`.
 - **Security:** stateless JWT (JJWT, HMAC-SHA256, `parseSignedClaims()` only), BCrypt, Resilience4j rate limiting on login/payment endpoints. Reactive security chain (`ServerHttpSecurity`) — auth context must propagate via Reactor context, not thread-locals.
 - **Resilience4j** (circuit breaker, retry, time limiter, rate limiter) with `resilience4j-reactor` so annotations decorate `Mono`-returning methods.
