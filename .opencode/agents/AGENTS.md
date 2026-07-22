@@ -1,6 +1,12 @@
+---
+disable: true
+---
+
 # Agent Instructions
 
 This file exists so that every coding agent (OpenCode, Claude Code, or anything else that reads AGENTS.md) operates under the same rules. It is deliberately thin: the canonical instructions live in `.claude/` and are not duplicated here, so they cannot drift.
+
+The `disable: true` frontmatter above is not documentation content — OpenCode scans `.opencode/agents/` for agent definitions, so without it this file would register as a runnable agent named `AGENTS`. The real developer/tester/reviewer personas (`backend-engineer`, `test-engineer`, `self-review`) are defined in `.opencode/opencode.json`'s `agent` block, each pointing its `prompt` at the matching file under `.claude/agents/` — same charter Claude Code's Task tool uses, no separate copy.
 
 ## Read these before doing anything
 

@@ -3,5 +3,32 @@
   "instructions": [
     ".claude/CLAUDE.md",
     ".claude/rules/*.md"
-  ]
+  ],
+  "agent": {
+    "backend-engineer": {
+      "mode": "primary",
+      "description": "Implements Payment Core features and fixes on a task branch. Default agent for coding sessions.",
+      "prompt": "{file:../.claude/agents/backend-engineer.md}"
+    },
+    "test-engineer": {
+      "mode": "subagent",
+      "description": "Writes and strengthens tests: coverage gaps, failure paths, edge cases, test infrastructure.",
+      "prompt": "{file:../.claude/agents/test-engineer.md}"
+    },
+    "self-review": {
+      "mode": "subagent",
+      "description": "Pre-handoff review against governance rules before a task goes to Claude Code for the merge gate. Read-only.",
+      "prompt": "{file:../.claude/agents/code-reviewer.md}",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "mvn *": "allow",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "git status*": "allow",
+          "*": "ask"
+        }
+      }
+    }
+  }
 }

@@ -43,11 +43,20 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: true
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          key-value: changeme-secret-key-used-in-dev-only-minimum-256-bits-required
+com:
+  orvigas:
+    security:
+      jwt:
+        secret: ${JWT_SECRET:changeme-secret-key-used-in-dev-only-minimum-256-bits-required}
+        expiration: ${JWT_EXPIRATION:15m}
+        issuer: ${JWT_ISSUER:payment-core}
+        audience: ${JWT_AUDIENCE:payment-core}
+      users:
+        default:
+          username: ${APP_USER_NAME:admin}
+          password: ${APP_USER_PASSWORD_HASH:}
+          roles:
+            - USER
 
   jackson:
     serialization:
@@ -111,8 +120,8 @@ server:
     enabled: true
     min-response-size: 1024
   error:
-    include-message: always
-    include-stacktrace: on_param
+    include-message: never
+    include-stacktrace: never
 
 springdoc:
   swagger-ui:

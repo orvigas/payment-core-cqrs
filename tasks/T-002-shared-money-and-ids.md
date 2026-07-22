@@ -1,9 +1,9 @@
 ---
 id: T-002
 title: Shared Money value object and typed identifiers
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: backend-engineer
+branch: task/T-002-shared-money-and-ids
 depends-on: []
 ---
 

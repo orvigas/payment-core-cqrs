@@ -19,6 +19,23 @@ The pom had never been built until the quality gate was wired up; the first `mvn
 - **Testcontainers 2.x renamed its module artifacts.** Boot 4.1 manages `testcontainers-bom` 2.0.5; the 1.x artifact ids `junit-jupiter`, `postgresql`, and `mongodb` no longer resolve. The new names are `testcontainers-junit-jupiter`, `testcontainers-postgresql`, `testcontainers-mongodb`.
 - **Mockito setup was doubly broken.** `mockito-inline` is discontinued (inline mocking is the Mockito 5 default; the artifact ends at 5.2.0), and attaching mockito-core 5.2.0 as a `-javaagent` crashes the JVM at startup (`Agent_OnLoad: instrument`) because agent support only arrived around 5.14. Worse, the hardcoded surefire `argLine` silently replaced JaCoCo's `prepare-agent` argument, which would have produced empty coverage data. Fix: drop `mockito-inline`, resolve the BOM-managed jar via the dependency plugin's `properties` goal, and compose `argLine` as `@{argLine} -javaagent:${org.mockito:mockito-core:jar}`.
 
+## Lombok silently no-ops without an explicit annotation processor path (2026-07-22)
+
+Found while adding the T-001 test harness: `@RequiredArgsConstructor` on a test class compiled with no error, but the constructor was never generated - the field stayed uninitialized and javac reported "variable not initialized in the default constructor" as if the annotation weren't there at all.
+
+Root cause: this toolchain runs Maven under JDK 23, and its javac no longer treats plain `-classpath` entries as a source of annotation processors. Lombok was only ever declared as a regular `provided` dependency, so it was reachable on the classpath but never picked up as a processor - and critically, javac does not warn when this happens; a class using Lombok annotations just compiles as if they were absent. Reproduced directly with `javac` outside Maven: `-cp lombok.jar` alone silently drops the annotation, while `-processorpath lombok.jar` runs it correctly.
+
+Fix: give `maven-compiler-plugin` an explicit `annotationProcessorPaths` entry for `org.projectlombok:lombok:${lombok.version}`. This was previously missing because no main-source class used Lombok yet, so the gap was latent rather than broken.
+
+Why it matters: `CODING_STANDARD.md` mandates `@RequiredArgsConstructor`/`@Slf4j` as the standard pattern. Without this fix, every future task that adds a Lombok-annotated class would hit the same silent failure - not a build error, but a runtime `NullPointerException` or missing logger the first time the class is actually exercised, since the compiler never complained.
+
+Prevention: covered structurally now (the fix is in `pom.xml`), and the harness's own `ApplicationContextLoadTest` uses `@RequiredArgsConstructor` for its constructor injection, so a regression here would resurface immediately as a compile failure rather than staying latent again.
+
+## More Boot-4 artifact renames found during T-004 (2026-07-22)
+
+- **`spring-boot-starter-aop` is now `spring-boot-starter-aspectj`.** The old artifact id is gone in Boot 4.1. Without the new starter, AspectJ-based AOP is not configured, and beans like `RateLimiterAspect` are never created even though AspectJ is on the classpath.
+- **`spring-boot-webtestclient` is a separate test artifact.** The `@AutoConfigureWebTestClient` annotation moved from `org.springframework.boot.test.autoconfigure.web.reactive` to `org.springframework.boot.webtestclient.autoconfigure`. If the import fails or the `WebTestClient` bean is missing, add the artifact and update the import.
+
 ## Why 4.1.0 and not 4.0.x
 
 4.1.0 is the latest stable line (active support to July 2027); 4.0.x support ends December 2026. New projects should target 4.1.
@@ -29,6 +46,6 @@ When bumping the Boot parent in the future, check every dependency whose artifac
 
 ## Keywords
 
-spring boot 4, upgrade, migration, spring kafka starter, springdoc 3, resilience4j-spring-boot4, WebFluxProperties, boot bom
+spring boot 4, upgrade, migration, spring kafka starter, springdoc 3, resilience4j-spring-boot4, WebFluxProperties, boot bom, lombok annotationProcessorPaths, javac JDK 23 annotation processor discovery, RequiredArgsConstructor silent no-op
 
 Related: [[r2dbc-migration-gotchas]], [[distributed-tracing-observability-gotchas]]
