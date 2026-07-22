@@ -27,11 +27,12 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    // Only /actuator/health and /actuator/prometheus are public per SECURITY_POLICY.md
+    // section 8; every other actuator endpoint, including /actuator/info, requires auth.
     private static final String[] PUBLIC_PATHS = {
             "/auth/login",
             "/actuator/health",
             "/actuator/health/**",
-            "/actuator/info",
             "/actuator/prometheus",
             "/v3/api-docs",
             "/v3/api-docs/**",
