@@ -1,6 +1,6 @@
 # Roles
 
-Roles are defined as executable subagent definitions in `.claude/agents/`, which is the canonical location; this directory intentionally holds no duplicate charters so the two cannot drift. OpenCode and other tools find the same role expectations through `.opencode/agents/AGENTS.md`.
+Roles are defined as executable subagent definitions in `.claude/agents/`, which is the canonical location; this directory intentionally holds no duplicate charters so the two cannot drift. OpenCode reads the exact same files: `.opencode/opencode.json`'s `agent` block sources each OpenCode agent's `prompt` straight from the matching file in `.claude/agents/` via the `{file:...}` include, so there is one charter per role, not one per tool. `.opencode/agents/AGENTS.md` covers the rules that apply regardless of which agent is active.
 
 Current roles:
 
