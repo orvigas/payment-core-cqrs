@@ -2,8 +2,6 @@ package com.orvigas.support;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -14,21 +12,36 @@ import org.testcontainers.utility.DockerImageName;
  * event store extension has none either, so every integration test in this
  * codebase goes through real containers rather than an embedded database.
  *
- * <p>Subclasses get both containers started once per test class and wired
- * into the Spring context automatically via {@code @ServiceConnection} -
- * no manual {@code @DynamicPropertySource} plumbing, and no per-class
- * container definitions to keep in sync. The Postgres tag matches the
- * version pinned in {@code docker-compose.yml} (15-alpine). The Mongo tag
- * does not: {@code docker-compose.yml} and {@code TECH_STACK.md} both
- * pin {@code mongo:7.0-alpine}, but the official image has never published
- * an Alpine variant (Docker Hub only ships jammy/Windows tags for it) - that
- * tag 404s on pull. {@code 7.0-jammy} is the closest real equivalent to what
- * those docs intended; see the T-001 handoff log for the doc-fix that still
- * needs to happen in {@code docker-compose.yml}.
+ * <p>Containers are started once per JVM via a static initializer - the
+ * Testcontainers "singleton container" pattern - and shared across every
+ * subclass, wired into the Spring context automatically via
+ * {@code @ServiceConnection}. This class deliberately does not use
+ * {@code @Testcontainers}/{@code @Container}: those annotations tie start/stop
+ * to each concrete test class's JUnit 5 lifecycle, but a {@code static} field
+ * declared here is inherited, not duplicated, so every subclass shares the
+ * exact same container instance. When two or more subclasses run in the same
+ * JVM, {@code @Container}'s per-class {@code afterAll} stops that shared
+ * instance out from under whichever class runs next, while Spring's test
+ * context cache keeps reusing the now-stale connection details from before
+ * the stop - the container gets restarted with a new mapped port that the
+ * cached context never learns about, and every subsequent query fails with
+ * "connection refused" on the old port. A static initializer starts each
+ * container exactly once at class-load time, before any Spring context can
+ * reference it, and never stops it explicitly; Testcontainers' Ryuk reaper
+ * cleans both up when the JVM exits, same as it always did.
  *
- * <p>If Docker itself is unreachable, container startup fails during
- * {@code @BeforeAll} with Testcontainers' own diagnostic (which strategy
- * it tried and why each failed) rather than a silent hang; Spring Boot's
+ * <p>The Postgres tag matches the version pinned in {@code docker-compose.yml}
+ * (15-alpine). The Mongo tag does not: {@code docker-compose.yml} and
+ * {@code TECH_STACK.md} both pin {@code mongo:7.0-alpine}, but the official
+ * image has never published an Alpine variant (Docker Hub only ships
+ * jammy/Windows tags for it) - that tag 404s on pull. {@code 7.0-jammy} is
+ * the closest real equivalent to what those docs intended; see the T-001
+ * handoff log for the doc-fix that still needs to happen in
+ * {@code docker-compose.yml}.
+ *
+ * <p>If Docker itself is unreachable, the static initializer fails at
+ * class-load time with Testcontainers' own diagnostic (which strategy it
+ * tried and why each failed) rather than a silent hang; Spring Boot's
  * {@code DockerEnvironmentNotFoundFailureAnalyzer} turns that into a
  * readable context-startup failure. See {@code docker} package for a test
  * that pins down this exact behavior.
@@ -43,16 +56,10 @@ import org.testcontainers.utility.DockerImageName;
  *
  * @author orvigas@gmail.com
  */
-@Testcontainers
 @SpringBootTest(properties = "spring.config.location=classpath:/test-harness-application.yml")
 public abstract class AbstractIntegrationTest {
 
-    /**
-     * Backs the R2DBC read layer. One container per test class (Testcontainers'
-     * JUnit 5 extension starts it before the first test and stops it after the
-     * last), shared across every test method to keep the suite fast.
-     */
-    @Container
+    /** Backs the R2DBC read layer. */
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:15-alpine"));
 
@@ -64,8 +71,12 @@ public abstract class AbstractIntegrationTest {
      * set member or mongos" - a single-node replica set is the standard way
      * to satisfy that requirement in a test container.
      */
-    @Container
     @ServiceConnection
     static final MongoDBContainer MONGODB = new MongoDBContainer(DockerImageName.parse("mongo:7.0-jammy"))
             .withReplicaSet();
+
+    static {
+        POSTGRES.start();
+        MONGODB.start();
+    }
 }

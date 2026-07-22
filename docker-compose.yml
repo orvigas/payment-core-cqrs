@@ -15,6 +15,10 @@ services:
       SPRING_DATASOURCE_USERNAME: payment_user
       SPRING_DATASOURCE_PASSWORD: payment_password
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # No default: the app fails fast at startup if this is unset rather than
+      # falling back to a value that could end up committed. Set it in a local,
+      # gitignored .env file - see .env.example.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set - copy .env.example to .env and generate one}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://otel-collector:9411/api/v2/spans
       MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: 'true'
