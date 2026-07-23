@@ -82,6 +82,14 @@
             <artifactId>spring-boot-starter-data-mongodb-reactive</artifactId>
         </dependency>
 
+        <!-- Axon MongoDB event store extension requires the synchronous MongoDB
+             driver / Spring Data MongoDB template; it does not operate on the
+             reactive driver. Both starters share spring.data.mongodb.uri. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
         <!-- Read Layer: R2DBC PostgreSQL -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

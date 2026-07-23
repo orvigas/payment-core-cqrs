@@ -37,6 +37,13 @@ axon:
     messages: jackson
   axonserver:
     enabled: false
+  mongo:
+    event-store:
+      enabled: true
+    token-store:
+      enabled: true
+    saga-store:
+      enabled: false
 
 management:
   endpoints:

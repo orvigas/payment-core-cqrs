@@ -53,13 +53,13 @@ class ApplicationContextLoadTest extends AbstractIntegrationTest {
     void reactiveMongoReachesRealMongodb() {
         ReactiveMongoTemplate mongoTemplate = context.getBean(ReactiveMongoTemplate.class);
 
-        // Axon's token store bean creation already writes a "trackingtokens"
-        // collection during context startup, so an empty database isn't the
-        // right expectation; listing collections without error is enough to
-        // prove the driver can open a socket and authenticate against the
-        // container, without depending on any schema this task doesn't add.
-        StepVerifier.create(mongoTemplate.getCollectionNames())
-                .expectNextCount(1)
+        // Axon's event and token store beans create collections during context
+        // startup, so an empty database isn't the right expectation. Listing
+        // collections without error is enough to prove the driver can open a
+        // socket and authenticate against the container, without depending on
+        // any schema this task doesn't add.
+        StepVerifier.create(mongoTemplate.getCollectionNames().collectList())
+                .assertNext(collections -> Assertions.assertThat(collections).isNotEmpty())
                 .verifyComplete();
     }
 }
