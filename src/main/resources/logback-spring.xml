@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <conversionRule conversionWord="maskedMessage"
+                    converterClass="com.orvigas.observability.SensitiveDataConverter"/>
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <includeContext>false</includeContext>
+            <customFields>{"application":"payment-core"}</customFields>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>message</message>
+                <logger>logger</logger>
+                <thread>thread</thread>
+                <level>level</level>
+                <mdc>mdc</mdc>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>http://localhost:3100/loki/api/v1/push</url>
+            <sender class="com.github.loki4j.logback.JavaHttpSender"/>
+        </http>
+        <labels>
+            <pattern>app=payment-core,level=%level,traceId=%X{traceId:-},spanId=%X{spanId:-}</pattern>
+        </labels>
+        <message>
+            <pattern>%maskedMessage%nopex</pattern>
+        </message>
+        <batch>
+            <maxItems>128</maxItems>
+        </batch>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+        <appender-ref ref="LOKI"/>
+    </root>
+
+    <logger name="com.orvigas" level="DEBUG" additivity="false">
+        <appender-ref ref="JSON_CONSOLE"/>
+        <appender-ref ref="LOKI"/>
+    </logger>
+
+    <logger name="org.springframework.security" level="INFO" additivity="false">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </logger>
+
+    <logger name="reactor.netty" level="WARN" additivity="false">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </logger>
+</configuration>

@@ -114,14 +114,9 @@ logging:
   level:
     root: INFO
     com.orvigas: DEBUG
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
     org.springframework.kafka: INFO
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-  logback:
-    loki-config:
-      enabled: true
-      url: http://localhost:3100/loki/api/v1/push
+    reactor.netty: WARN
 
 server:
   port: 8080

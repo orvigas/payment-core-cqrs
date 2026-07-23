@@ -1,9 +1,9 @@
 ---
 id: T-008
 title: Payment REST API
-status: backlog
-owner: none
-branch: none
+status: review
+owner: general
+branch: task/T-008-payment-rest-api
 depends-on: [T-003, T-004]
 ---
 
@@ -37,3 +37,5 @@ The `Payment` aggregate becomes reachable over HTTP: a merchant or client can in
 The merchant-`ACTIVE` precondition on `initiate` is not enforced yet (no `Merchant` aggregate exists — see T-009/T-010); this task can either stub that check or land ahead of T-010 and wire it in later. Don't block on it.
 
 ## Handoff log
+
+- **2026-07-22** Agent implemented: `POST /payments`, `POST /payments/{id}/captures`, `POST /payments/{id}/refunds` with OpenAPI docs, Jakarta validation, RFC 7807 error responses, 13 WebTestClient integration tests. Non-blocking `CommandGateway.send()` used throughout. `mvn verify` passes. No scope violations — only `payment/api/` touched. Learnings: MongoDB UUID representation workaround, `@JsonIgnore` on Money `is*()` methods. PR #6 opened on `task/T-008-payment-rest-api`.

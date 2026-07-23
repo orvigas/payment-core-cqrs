@@ -6,3 +6,5 @@
 - [Money vs Settlement Negative Amount Gap](../knowledge/money-settlement-negative-amount-gap.md) — Money's non-negative invariant can't represent Settlement's netAmount, which is legitimately signed; unresolved, needs a decision when Settlement is scoped
 - [Resilience4j RateLimiterAspect Missing on Spring Boot 4](../knowledge/resilience4j-ratelimiter-aspect-spring-boot-4.md) — `@RateLimiter` is silently ignored on WebFlux unless the aspect is registered manually because Resilience4j 2.4.0 requires RxJava 3 for the main aspect bean
 - [ADR-001 Axon + MongoDB event store](../../knowledge/decisions/adr-001-axon-mongodb-event-store.md) — why the write side uses Axon over MongoDB while Postgres holds only read projections
+- [T-008 Payment REST API Gotchas](../knowledge/t008-payment-rest-api-gotchas.md) — MongoDB UUID representation, Jackson Money serialization, `@Transactional` conflicts, void command handler patterns
+- [Distributed Tracing & Observability Gotchas](../knowledge/distributed-tracing-observability-gotchas.md) — Spring Boot 4.1 Micrometer API package changes, loki-logback-appender 2.0.3 XML config, Reactor context propagation

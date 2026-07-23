@@ -7,14 +7,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.orvigas.observability.PaymentMetrics;
 import com.orvigas.payment.idempotency.PaymentIdempotencyRepository;
 import com.orvigas.shared.id.CustomerId;
 import com.orvigas.shared.id.MerchantId;
 import com.orvigas.shared.id.PaymentId;
 import com.orvigas.shared.money.Money;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Optional;
 import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +31,12 @@ class PaymentCommandHandlerTest {
 
     private final PaymentIdempotencyRepository repository = mock(PaymentIdempotencyRepository.class);
     private final CommandGateway commandGateway = mock(CommandGateway.class);
-    private final PaymentCommandHandler handler = new PaymentCommandHandler(repository, commandGateway);
+    private PaymentCommandHandler handler;
+
+    @BeforeEach
+    void setUp() {
+        handler = new PaymentCommandHandler(repository, commandGateway, new PaymentMetrics(new SimpleMeterRegistry()));
+    }
 
     private InitiatePaymentCommand initiateCommand(PaymentId paymentId) {
         return new InitiatePaymentCommand(
