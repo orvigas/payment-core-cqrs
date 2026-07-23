@@ -1,7 +1,7 @@
 ---
 id: T-004
 title: Reactive JWT security chain
-status: completed
+status: done
 owner: opencode
 branch: task/T-004-jwt-security-chain
 depends-on: [T-001]
