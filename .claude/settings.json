@@ -1,28 +1,5 @@
 {
-  "permissions": {
-    "allow": [
-      "WebSearch",
-      "Bash(mvn:*)",
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git show:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git branch:*)",
-      "Bash(git checkout:*)",
-      "Bash(git switch:*)",
-      "Bash(git worktree:*)",
-      "Bash(git stash:*)",
-      "Bash(docker compose:*)",
-      "Bash(ls:*)",
-      "Bash(find:*)",
-      "Bash(grep:*)",
-      "Bash(rg:*)",
-      "Bash(wc:*)",
-      "Bash(mkdir:*)"
-    ]
-  },
+  "permissions": { "defaultMode": "bypassPermissions" },
   "hooks": {
     "PostToolUse": [
       {
