@@ -13,30 +13,30 @@
       "permission": {
         "edit": "allow",
         "bash": {
+          "*": "ask",
           "mvn *": "allow",
           "git status*": "allow",
           "git diff*": "allow",
           "git log*": "allow",
-          "git branch --show-current": "allow",
           "git branch *": "ask",
+          "git branch --show-current": "allow",
           "git add *": "allow",
           "git commit *": "allow",
-          "git checkout -b task/*": "allow",
           "git checkout main*": "deny",
           "git switch main*": "deny",
+          "git checkout -b task/*": "allow",
           "git merge*": "deny",
           "git rebase*": "ask",
-          "git push origin task/*": "allow",
-          "git push -u origin task/*": "allow",
-          "git push*main*": "deny",
-          "git push*": "deny",
+          "git worktree*": "ask",
           "git commit-tree*": "deny",
           "git update-ref*": "deny",
-          "git worktree*": "ask",
-          "gh pr create*": "allow",
-          "gh pr merge*": "deny",
+          "git push*": "deny",
+          "git push origin task/*": "allow",
+          "git push -u origin task/*": "allow",
+          "git push*:*": "deny",
           "gh pr *": "ask",
-          "*": "ask"
+          "gh pr create*": "allow",
+          "gh pr merge*": "deny"
         }
       }
     },
@@ -52,11 +52,11 @@
       "permission": {
         "edit": "deny",
         "bash": {
+          "*": "ask",
           "mvn *": "allow",
           "git diff*": "allow",
           "git log*": "allow",
-          "git status*": "allow",
-          "*": "ask"
+          "git status*": "allow"
         }
       }
     },
@@ -67,11 +67,11 @@
       "permission": {
         "edit": "deny",
         "bash": {
+          "*": "ask",
           "mvn *": "allow",
           "git diff*": "allow",
           "git log*": "allow",
-          "git status*": "allow",
-          "*": "ask"
+          "git status*": "allow"
         }
       }
     }
