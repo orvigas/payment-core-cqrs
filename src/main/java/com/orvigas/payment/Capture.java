@@ -4,16 +4,16 @@ import com.orvigas.shared.id.CaptureId;
 import com.orvigas.shared.money.Money;
 import java.time.Instant;
 import java.util.Objects;
-import lombok.AccessLevel;
-import lombok.Setter;
 
 /**
  * Capture entity inside the Payment aggregate. Represents an attempt to claim
  * previously authorized funds.
  *
+ * <p>Fields are intentionally mutable: state is rebuilt during event replay in
+ * the owning Payment aggregate's event sourcing handlers.
+ *
  * @author orvigas@gmail.com
  */
-@Setter(AccessLevel.PRIVATE)
 public class Capture {
 
     private final CaptureId captureId;

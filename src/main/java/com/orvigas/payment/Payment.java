@@ -13,9 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
@@ -28,11 +25,14 @@ import org.axonframework.spring.stereotype.Aggregate;
  * value objects for commands/events; mutable state is rebuilt by replaying
  * events.
  *
+ * <p>Fields are intentionally mutable because Axon event sourcing rebuilds state
+ * by replaying events through event handlers that mutate aggregate fields. This
+ * design is standard for event-sourced aggregates and is distinct from the
+ * aggregate's public API, which enforces constraints via command handlers.
+ *
  * @author orvigas@gmail.com
  */
 @Aggregate
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Setter(AccessLevel.PRIVATE)
 public class Payment {
 
     @AggregateIdentifier
@@ -59,6 +59,13 @@ public class Payment {
     private Money refundedAmount;
     private final List<String> idempotencyKeysForRefunds = new ArrayList<>();
     private boolean finalCaptureSucceeded;
+
+    /**
+     * Protected no-arg constructor for Axon event sourcing. Not for application
+     * use.
+     */
+    protected Payment() {
+    }
 
     /**
      * Constructor that handles the initiate payment command.

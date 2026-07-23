@@ -5,16 +5,16 @@ import com.orvigas.shared.id.RefundId;
 import com.orvigas.shared.money.Money;
 import java.time.Instant;
 import java.util.Objects;
-import lombok.AccessLevel;
-import lombok.Setter;
 
 /**
  * Refund entity inside the Payment aggregate. Represents an attempt to return
  * previously captured funds to the customer.
  *
+ * <p>Fields are intentionally mutable: state is rebuilt during event replay in
+ * the owning Payment aggregate's event sourcing handlers.
+ *
  * @author orvigas@gmail.com
  */
-@Setter(AccessLevel.PRIVATE)
 public class Refund {
 
     private final RefundId refundId;
