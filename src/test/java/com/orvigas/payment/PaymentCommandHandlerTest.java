@@ -1,6 +1,7 @@
 package com.orvigas.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -19,7 +20,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for the application-level payment command handler.
+ * Unit tests for the application-level payment command handler. Idempotency
+ * reservation, not a separate lookup, decides whether the aggregate gets
+ * created - see {@link PaymentCommandHandler}'s Javadoc for why the
+ * reservation itself must be atomic.
  *
  * @author orvigas@gmail.com
  */
@@ -42,32 +46,47 @@ class PaymentCommandHandlerTest {
     }
 
     @Test
-    @DisplayName("dispatches create command for a new idempotency key")
-    void testNewIdempotencyKeyDispatchesCreate() {
+    @DisplayName("dispatches create command when the idempotency key reservation is won")
+    void testWinningReservationDispatchesCreate() {
         var paymentId = PaymentId.newId();
         var command = initiateCommand(paymentId);
-        when(repository.findPaymentIdByIdempotencyKey(command.idempotencyKey())).thenReturn(Optional.empty());
+        when(repository.tryStore(command.idempotencyKey(), paymentId)).thenReturn(true);
 
         var result = handler.handle(command);
 
-        assertThat(result).isEqualTo(paymentId);
+        assertThat(result.paymentId()).isEqualTo(paymentId);
+        assertThat(result.created()).isTrue();
         verify(commandGateway).sendAndWait(any(CreatePaymentCommand.class));
-        verify(repository).store(command.idempotencyKey(), paymentId);
     }
 
     @Test
-    @DisplayName("returns existing payment id for a duplicate idempotency key")
-    void testDuplicateIdempotencyKeyReturnsExistingPaymentId() {
+    @DisplayName("returns the existing payment id when another call already claimed the key")
+    void testLosingReservationReturnsExistingPaymentId() {
         var paymentId = PaymentId.newId();
         var command = initiateCommand(paymentId);
         var existingPaymentId = PaymentId.newId();
+        when(repository.tryStore(command.idempotencyKey(), paymentId)).thenReturn(false);
         when(repository.findPaymentIdByIdempotencyKey(command.idempotencyKey()))
                 .thenReturn(Optional.of(existingPaymentId));
 
         var result = handler.handle(command);
 
-        assertThat(result).isEqualTo(existingPaymentId);
+        assertThat(result.paymentId()).isEqualTo(existingPaymentId);
+        assertThat(result.created()).isFalse();
         verify(commandGateway, never()).sendAndWait(any());
-        verify(repository, never()).store(any(), any());
+    }
+
+    @Test
+    @DisplayName("fails clearly if a lost reservation's winner cannot be found")
+    void testLosingReservationWithNoWinnerFound() {
+        var paymentId = PaymentId.newId();
+        var command = initiateCommand(paymentId);
+        when(repository.tryStore(command.idempotencyKey(), paymentId)).thenReturn(false);
+        when(repository.findPaymentIdByIdempotencyKey(command.idempotencyKey()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> handler.handle(command))
+                .isInstanceOf(IllegalStateException.class);
+        verify(commandGateway, never()).sendAndWait(any());
     }
 }

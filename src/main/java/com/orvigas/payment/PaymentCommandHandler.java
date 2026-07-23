@@ -3,15 +3,16 @@ package com.orvigas.payment;
 import com.orvigas.payment.idempotency.PaymentIdempotencyRepository;
 import com.orvigas.shared.id.PaymentId;
 import java.util.Objects;
-import java.util.Optional;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.stereotype.Component;
 
 /**
- * Application-level command handler for payment initiation. Enforces
- * idempotency before the aggregate is created: duplicate keys return the
- * existing payment identifier without creating a second aggregate.
+ * Application-level command handler for payment initiation. Owns idempotency
+ * exclusively: the REST layer no longer pre-checks the key, since a
+ * find-then-store split across two layers just moves the race rather than
+ * closing it. The key is reserved atomically before the aggregate exists, so
+ * of any number of concurrent callers sharing a key, exactly one creates it.
  *
  * @author orvigas@gmail.com
  */
@@ -29,20 +30,25 @@ public class PaymentCommandHandler {
     }
 
     /**
-     * Handles an external initiate-payment command. If the idempotency key
-     * has been used before, the existing payment identifier is returned and
-     * no aggregate is created. Otherwise the command is translated to a
-     * {@link CreatePaymentCommand} and dispatched to the aggregate.
+     * Handles an external initiate-payment command. Reserves the idempotency
+     * key atomically; if this call wins the race, the command is translated
+     * to a {@link CreatePaymentCommand} and dispatched to the aggregate. If
+     * another call already claimed the key - including one still in flight -
+     * this call returns that winner's payment id and creates nothing.
      *
      * @param command the external initiate command
-     * @return the payment identifier for this key
+     * @return the resolved payment id and whether this call is the one that created it
      */
     @CommandHandler
-    public PaymentId handle(InitiatePaymentCommand command) {
+    public PaymentInitiationResult handle(InitiatePaymentCommand command) {
         Objects.requireNonNull(command, "command must not be null");
-        Optional<PaymentId> existing = idempotencyRepository.findPaymentIdByIdempotencyKey(command.idempotencyKey());
-        if (existing.isPresent()) {
-            return existing.get();
+        boolean reserved = idempotencyRepository.tryStore(command.idempotencyKey(), command.paymentId());
+        if (!reserved) {
+            PaymentId existing = idempotencyRepository.findPaymentIdByIdempotencyKey(command.idempotencyKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "idempotency key " + command.idempotencyKey()
+                                    + " is reserved by another request but its payment id could not be found"));
+            return new PaymentInitiationResult(existing, false);
         }
 
         CreatePaymentCommand createCommand = new CreatePaymentCommand(
@@ -55,7 +61,6 @@ public class PaymentCommandHandler {
                 command.authorizationExpiresAt());
 
         commandGateway.sendAndWait(createCommand);
-        idempotencyRepository.store(command.idempotencyKey(), command.paymentId());
-        return command.paymentId();
+        return new PaymentInitiationResult(command.paymentId(), true);
     }
 }

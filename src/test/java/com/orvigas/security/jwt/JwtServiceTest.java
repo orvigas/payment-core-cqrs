@@ -28,17 +28,19 @@ import static org.assertj.core.api.InstanceOfAssertFactories.LIST;
 class JwtServiceTest {
 
     private static final String SECRET = "test-secret-key-must-be-at-least-256-bits-long-ok";
+    private static final String MERCHANT_ID = "00000000-0000-0000-0000-000000000001";
 
     private final JwtService jwtService = new JwtService(properties());
 
     @Test
     void createsVerifiableToken() {
-        String token = jwtService.createToken("user", List.of("USER")).block();
+        String token = jwtService.createToken("user", List.of("USER"), MERCHANT_ID).block();
 
         StepVerifier.create(jwtService.parseToken(token))
                 .assertNext(claims -> {
                     assertThat(claims.getSubject()).isEqualTo("user");
                     assertThat(claims.get("roles")).asInstanceOf(LIST).containsExactly("USER");
+                    assertThat(claims.get("merchantId")).isEqualTo(MERCHANT_ID);
                     assertThat(claims.getIssuer()).isEqualTo("test-issuer");
                     assertThat(claims.getAudience()).containsExactly("test-audience");
                 })
@@ -47,7 +49,7 @@ class JwtServiceTest {
 
     @Test
     void rejectsTamperedToken() {
-        String token = jwtService.createToken("user", List.of("USER")).block();
+        String token = jwtService.createToken("user", List.of("USER"), MERCHANT_ID).block();
         String tampered = JwtTestUtils.tamperPayload(token);
 
         StepVerifier.create(jwtService.parseToken(tampered))

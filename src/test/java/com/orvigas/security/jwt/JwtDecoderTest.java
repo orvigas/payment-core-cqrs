@@ -32,7 +32,7 @@ class JwtDecoderTest {
 
     @Test
     void decodesValidToken() {
-        String token = jwtService.createToken("user", List.of("USER")).block();
+        String token = jwtService.createToken("user", List.of("USER"), "00000000-0000-0000-0000-000000000001").block();
 
         StepVerifier.create(jwtDecoder.decode(token))
                 .assertNext(jwt -> {
@@ -45,7 +45,7 @@ class JwtDecoderTest {
 
     @Test
     void rejectsTamperedToken() {
-        String token = jwtService.createToken("user", List.of("USER")).block();
+        String token = jwtService.createToken("user", List.of("USER"), "00000000-0000-0000-0000-000000000001").block();
         String tampered = JwtTestUtils.tamperPayload(token);
 
         StepVerifier.create(jwtDecoder.decode(tampered))

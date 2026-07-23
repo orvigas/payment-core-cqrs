@@ -1,5 +1,6 @@
 package com.orvigas.security.error;
 
+import com.orvigas.payment.PaymentAccessDeniedException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,11 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class GlobalErrorHandler {
 
+    // Fixed, indistinguishable from the real not-found case: a caller probing
+    // payment ids must not be able to tell "not yours" apart from "does not
+    // exist" - see PaymentAccessDeniedException.
+    private static final String PAYMENT_NOT_FOUND_DETAIL = "Payment not found";
+
     private final ProblemDetailsResponseWriter writer;
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -64,17 +70,26 @@ public class GlobalErrorHandler {
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public Mono<Void> handleInvariantViolation(ServerWebExchange exchange, RuntimeException ex) {
-        return writer.write(exchange, HttpStatus.BAD_REQUEST, "Bad request", ex.getMessage());
+        // Same reasoning as handleValidation: these messages can carry amounts, statuses, or
+        // (for RefundReasonCode.valueOf failures) an internal class name, so the client gets a
+        // fixed string and the real detail goes to the server log against the correlation id.
+        log.warn("Rejected request violating a business rule [{}]: {}",
+                exchange.getRequest().getId(), ex.getClass().getSimpleName(), ex);
+        return writer.write(exchange, HttpStatus.BAD_REQUEST, "Bad request",
+                "The request violates a payment processing rule and cannot be completed.");
     }
 
     @ExceptionHandler(CommandExecutionException.class)
     public Mono<Void> handleCommandExecution(ServerWebExchange exchange, CommandExecutionException ex) {
         Throwable cause = ex.getCause();
         if (cause instanceof IllegalArgumentException || cause instanceof IllegalStateException) {
-            return writer.write(exchange, HttpStatus.BAD_REQUEST, "Bad request", cause.getMessage());
+            log.warn("Rejected command violating a business rule [{}]: {}",
+                    exchange.getRequest().getId(), cause.getClass().getSimpleName(), cause);
+            return writer.write(exchange, HttpStatus.BAD_REQUEST, "Bad request",
+                    "The request violates a payment processing rule and cannot be completed.");
         }
-        if (cause instanceof AggregateNotFoundException) {
-            return writer.write(exchange, HttpStatus.NOT_FOUND, "Not found", "Payment not found");
+        if (cause instanceof AggregateNotFoundException || cause instanceof PaymentAccessDeniedException) {
+            return writer.write(exchange, HttpStatus.NOT_FOUND, "Not found", PAYMENT_NOT_FOUND_DETAIL);
         }
         log.warn("Command execution failed [{}]: {}", exchange.getRequest().getId(), ex.getClass().getSimpleName(), ex);
         return writer.write(exchange, HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error",
@@ -83,6 +98,15 @@ public class GlobalErrorHandler {
 
     @ExceptionHandler(AggregateNotFoundException.class)
     public Mono<Void> handleAggregateNotFound(ServerWebExchange exchange) {
-        return writer.write(exchange, HttpStatus.NOT_FOUND, "Not found", "Payment not found");
+        return writer.write(exchange, HttpStatus.NOT_FOUND, "Not found", PAYMENT_NOT_FOUND_DETAIL);
+    }
+
+    // Axon's SimpleCommandBus does not consistently wrap @CommandHandler exceptions in
+    // CommandExecutionException on this dispatch path - AggregateNotFoundException and this
+    // exception both reach here unwrapped in practice, which is why both get a direct handler
+    // in addition to the defensive branch inside handleCommandExecution above.
+    @ExceptionHandler(PaymentAccessDeniedException.class)
+    public Mono<Void> handlePaymentAccessDenied(ServerWebExchange exchange) {
+        return writer.write(exchange, HttpStatus.NOT_FOUND, "Not found", PAYMENT_NOT_FOUND_DETAIL);
     }
 }

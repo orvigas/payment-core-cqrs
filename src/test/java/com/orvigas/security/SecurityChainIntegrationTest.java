@@ -71,7 +71,7 @@ class SecurityChainIntegrationTest extends AbstractSecurityIntegrationTest {
 
     @Test
     void protectedEndpointWithValidTokenReturns200() {
-        String token = jwtService.createToken(TEST_USERNAME, List.of("USER")).block();
+        String token = jwtService.createToken(TEST_USERNAME, List.of("USER"), testMerchantId).block();
 
         webTestClient.get().uri("/secure")
                 .header("Authorization", "Bearer " + token)
@@ -82,7 +82,7 @@ class SecurityChainIntegrationTest extends AbstractSecurityIntegrationTest {
 
     @Test
     void protectedEndpointWithTamperedTokenReturns401ProblemDetail() {
-        String token = jwtService.createToken(TEST_USERNAME, List.of("USER")).block();
+        String token = jwtService.createToken(TEST_USERNAME, List.of("USER"), testMerchantId).block();
         String tampered = JwtTestUtils.tamperPayload(token);
 
         webTestClient.get().uri("/secure")

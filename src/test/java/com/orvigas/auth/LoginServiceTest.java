@@ -35,6 +35,7 @@ class LoginServiceTest {
 
     private static final String USERNAME = "test-user";
     private static final String ENCODED_PASSWORD = "encoded-hash";
+    private static final String MERCHANT_ID = "00000000-0000-0000-0000-000000000001";
     private static final String GENERIC_FAILURE_MESSAGE = "Authentication failed";
 
     @Mock
@@ -47,7 +48,8 @@ class LoginServiceTest {
 
     @BeforeEach
     void setUp() {
-        loginService = loginServiceWithUser(new UserProperties(USERNAME, ENCODED_PASSWORD, List.of("USER")));
+        loginService = loginServiceWithUser(
+                new UserProperties(USERNAME, ENCODED_PASSWORD, List.of("USER"), MERCHANT_ID));
     }
 
     @Test
@@ -62,7 +64,8 @@ class LoginServiceTest {
 
     @Test
     void userWithNoConfiguredPasswordFailsClosedWithGenericMessage() {
-        LoginService serviceWithNoPassword = loginServiceWithUser(new UserProperties(USERNAME, "", List.of("USER")));
+        LoginService serviceWithNoPassword = loginServiceWithUser(
+                new UserProperties(USERNAME, "", List.of("USER"), MERCHANT_ID));
 
         StepVerifier.create(serviceWithNoPassword.authenticate(new LoginRequest(USERNAME, "any-password")))
                 .expectErrorSatisfies(error -> assertThat(error).hasMessage(GENERIC_FAILURE_MESSAGE))
@@ -81,7 +84,7 @@ class LoginServiceTest {
     @Test
     void correctCredentialsIssueASignedToken() {
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
-        when(jwtService.createToken(USERNAME, List.of("USER"))).thenReturn(Mono.just("signed-token"));
+        when(jwtService.createToken(USERNAME, List.of("USER"), MERCHANT_ID)).thenReturn(Mono.just("signed-token"));
 
         StepVerifier.create(loginService.authenticate(new LoginRequest(USERNAME, "correct-password")))
                 .assertNext(response -> {

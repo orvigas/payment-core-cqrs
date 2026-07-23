@@ -20,8 +20,9 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 /**
  * Integration tests for the Payment REST API. Exercises the full reactive
- * chain: JWT authentication, request validation, Axon command dispatch,
- * aggregate processing, and RFC 7807 error handling.
+ * chain: JWT authentication, merchant-scoped authorization, request
+ * validation, Axon command dispatch, aggregate processing, and RFC 7807
+ * error handling.
  *
  * @author orvigas@gmail.com
  */
@@ -38,7 +39,11 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
     private CommandGateway commandGateway;
 
     private String token() {
-        return jwtService.createToken(TEST_USERNAME, List.of("USER")).block();
+        return jwtService.createToken(TEST_USERNAME, List.of("USER"), testMerchantId).block();
+    }
+
+    private String tokenForMerchant(String merchantId) {
+        return jwtService.createToken(TEST_USERNAME, List.of("USER"), merchantId).block();
     }
 
     @Test
@@ -48,7 +53,7 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
         var response = webTestClient.post().uri("/payments")
                 .header("Authorization", "Bearer " + token())
                 .bodyValue(new InitiatePaymentRequest(
-                        UUID.randomUUID().toString(),
+                        testMerchantId,
                         UUID.randomUUID().toString(),
                         new MoneyRequest(10000, "USD"),
                         "tok_visa",
@@ -66,10 +71,25 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
     }
 
     @Test
+    void initiateForAnotherMerchantReturns403() {
+        webTestClient.post().uri("/payments")
+                .header("Authorization", "Bearer " + token())
+                .bodyValue(new InitiatePaymentRequest(
+                        UUID.randomUUID().toString(),
+                        UUID.randomUUID().toString(),
+                        new MoneyRequest(10000, "USD"),
+                        "tok_visa",
+                        UUID.randomUUID().toString()))
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
     void duplicateIdempotencyKeyReturns200() {
         var idempotencyKey = UUID.randomUUID().toString();
         var request = new InitiatePaymentRequest(
-                UUID.randomUUID().toString(),
+                testMerchantId,
                 UUID.randomUUID().toString(),
                 new MoneyRequest(10000, "USD"),
                 "tok_visa",
@@ -102,7 +122,7 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
         webTestClient.post().uri("/payments")
                 .header("Authorization", "Bearer " + token())
                 .bodyValue(new InitiatePaymentRequest(
-                        UUID.randomUUID().toString(),
+                        testMerchantId,
                         UUID.randomUUID().toString(),
                         new MoneyRequest(0, "USD"),
                         "tok_visa",
@@ -127,7 +147,7 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
     void unauthenticatedRequestReturns401() {
         webTestClient.post().uri("/payments")
                 .bodyValue(new InitiatePaymentRequest(
-                        UUID.randomUUID().toString(),
+                        testMerchantId,
                         UUID.randomUUID().toString(),
                         new MoneyRequest(10000, "USD"),
                         "tok_visa",
@@ -157,6 +177,39 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
                 .header("Authorization", "Bearer " + token())
                 .bodyValue(new RefundPaymentRequest(
                         new MoneyRequest(1000, "USD"),
+                        new RefundReasonRequest("REQUESTED_BY_CUSTOMER", "Test refund"),
+                        UUID.randomUUID().toString()))
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
+    void captureForAnotherMerchantReturns404() {
+        var paymentId = PaymentId.fromString(
+                createInitiatedPayment().paymentId().toString());
+        authorizePayment(paymentId, 10000);
+
+        webTestClient.post().uri("/payments/{paymentId}/captures", paymentId.value())
+                .header("Authorization", "Bearer " + tokenForMerchant(UUID.randomUUID().toString()))
+                .bodyValue(new CapturePaymentRequest(new MoneyRequest(10000, "USD"), true))
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
+    void refundForAnotherMerchantReturns404() {
+        var paymentId = PaymentId.fromString(
+                createInitiatedPayment().paymentId().toString());
+        authorizePayment(paymentId, 10000);
+        var captureResponse = capturePayment(paymentId, 10000, true);
+        confirmCapture(paymentId, captureResponse);
+
+        webTestClient.post().uri("/payments/{paymentId}/refunds", paymentId.value())
+                .header("Authorization", "Bearer " + tokenForMerchant(UUID.randomUUID().toString()))
+                .bodyValue(new RefundPaymentRequest(
+                        new MoneyRequest(5000, "USD"),
                         new RefundReasonRequest("REQUESTED_BY_CUSTOMER", "Test refund"),
                         UUID.randomUUID().toString()))
                 .exchange()
@@ -230,7 +283,7 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
         var initiateResponse = webTestClient.post().uri("/payments")
                 .header("Authorization", "Bearer " + token())
                 .bodyValue(new InitiatePaymentRequest(
-                        UUID.randomUUID().toString(),
+                        testMerchantId,
                         UUID.randomUUID().toString(),
                         new MoneyRequest(10000, "USD"),
                         "tok_visa",
@@ -256,7 +309,9 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
                 .getResponseBody();
         assertThat(captureResponse).isNotNull();
         assertThat(captureResponse.captureId()).isNotNull();
-        assertThat(captureResponse.status()).isEqualTo("CAPTURED");
+        // A capture only reaches PENDING here; SUCCEEDED requires a separate provider
+        // confirmation via ConfirmCaptureCommand, dispatched below.
+        assertThat(captureResponse.status()).isEqualTo("PENDING");
 
         confirmCapture(paymentId, captureResponse);
 
@@ -316,13 +371,17 @@ class PaymentRestApiIntegrationTest extends AbstractSecurityIntegrationTest {
         assertThat(first).isNotNull();
         assertThat(second).isNotNull();
         assertThat(second.status()).isEqualTo("REFUND_REQUESTED");
+        // The bug this guards against: the aggregate discards the freshly generated id on a
+        // duplicate key and returns the original refund's id instead - the service must build
+        // the response from that returned id, not echo a new one it minted locally.
+        assertThat(second.refundId()).isEqualTo(first.refundId());
     }
 
     private InitiatePaymentResponse createInitiatedPayment() {
         return webTestClient.post().uri("/payments")
                 .header("Authorization", "Bearer " + token())
                 .bodyValue(new InitiatePaymentRequest(
-                        UUID.randomUUID().toString(),
+                        testMerchantId,
                         UUID.randomUUID().toString(),
                         new MoneyRequest(10000, "USD"),
                         "tok_visa",

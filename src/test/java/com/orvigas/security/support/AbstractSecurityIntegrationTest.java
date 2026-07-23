@@ -13,7 +13,10 @@ import java.util.UUID;
  *
  * <p>Generates a random password and its BCrypt hash at class load time so the
  * credentials are not committed, and registers the user through the Spring
- * environment so the stub login service can authenticate it.
+ * environment so the stub login service can authenticate it. A random
+ * {@code testMerchantId} is generated the same way and embedded in every
+ * token the test user is issued, so tests can assert on merchant-scoped
+ * authorization without hardcoding a shared tenant id.
  *
  * <p>{@code @DirtiesContext} is required here: every subclass inherits the same
  * {@code registerTestUser} method, so Spring's context cache key treats them as
@@ -32,14 +35,17 @@ public abstract class AbstractSecurityIntegrationTest extends AbstractIntegratio
 
     protected static String testPassword;
     protected static String testPasswordHash;
+    protected static String testMerchantId;
 
     @DynamicPropertySource
     static void registerTestUser(DynamicPropertyRegistry registry) {
         testPassword = randomPassword();
         testPasswordHash = new BCryptPasswordEncoder(10).encode(testPassword);
+        testMerchantId = UUID.randomUUID().toString();
         registry.add("com.orvigas.security.users.test.username", () -> TEST_USERNAME);
         registry.add("com.orvigas.security.users.test.password", () -> testPasswordHash);
         registry.add("com.orvigas.security.users.test.roles[0]", () -> "USER");
+        registry.add("com.orvigas.security.users.test.merchant-id", () -> testMerchantId);
     }
 
     private static String randomPassword() {

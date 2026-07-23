@@ -40,24 +40,30 @@ public class JwtService {
     }
 
     /**
-     * Creates a signed access token for the given subject and roles.
+     * Creates a signed access token for the given subject, roles, and merchant.
      *
-     * @param username the token subject
-     * @param roles    the roles to embed as a claim
+     * <p>The merchant claim is what the payment API checks callers against for
+     * every merchant-scoped operation - it is never derived from a request
+     * body field, only from this token.
+     *
+     * @param username   the token subject
+     * @param roles      the roles to embed as a claim
+     * @param merchantId the merchant this caller acts for, embedded as a claim
      * @return the compact signed JWT
      */
-    public Mono<String> createToken(String username, List<String> roles) {
-        return Mono.fromCallable(() -> buildToken(username, roles))
+    public Mono<String> createToken(String username, List<String> roles, String merchantId) {
+        return Mono.fromCallable(() -> buildToken(username, roles, merchantId))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
-    private String buildToken(String username, List<String> roles) {
+    private String buildToken(String username, List<String> roles, String merchantId) {
         Date now = new Date();
         long expirationMillis = securityProperties.jwt().expiration().toMillis();
         Date expiration = new Date(now.getTime() + expirationMillis);
         return Jwts.builder()
                 .subject(username)
                 .claim("roles", roles)
+                .claim("merchantId", merchantId)
                 .issuedAt(now)
                 .expiration(expiration)
                 .issuer(securityProperties.jwt().issuer())

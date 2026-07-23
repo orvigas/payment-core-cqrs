@@ -57,13 +57,14 @@ management:
 
 resilience4j:
   ratelimiter:
+    configs:
+      default:
+        limit-refresh-period: 1m
+        limit-for-period: 100
     instances:
       login:
         limit-refresh-period: 1m
         limit-for-period: 5
-      payment:
-        limit-refresh-period: 1s
-        limit-for-period: 100
 
 logging:
   level:

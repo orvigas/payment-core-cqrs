@@ -60,7 +60,7 @@ public class LoginService {
     }
 
     private Mono<LoginResponse> issueToken(UserProperties user) {
-        return jwtService.createToken(user.username(), user.roles())
+        return jwtService.createToken(user.username(), user.roles(), user.merchantId())
                 .map(token -> new LoginResponse(token, "Bearer", securityProperties.jwt().expiration().toSeconds()));
     }
 

@@ -1,6 +1,7 @@
 package com.orvigas.payment;
 
 import com.orvigas.shared.id.CaptureId;
+import com.orvigas.shared.id.MerchantId;
 import com.orvigas.shared.id.PaymentId;
 import com.orvigas.shared.money.Money;
 import java.util.Objects;
@@ -13,13 +14,17 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
  * @param amount amount to capture
  * @param isFinal whether this is the final capture for this authorization
  * @param captureId an explicit capture identifier, generated if null
+ * @param callerMerchantId the merchant the caller is authorized to act for; when non-null the
+ *                         aggregate rejects the command unless it matches the payment's own
+ *                         merchant. Null means the check is skipped, for internal/system callers.
  * @author orvigas@gmail.com
  */
 public record CapturePaymentCommand(
         @TargetAggregateIdentifier PaymentId paymentId,
         Money amount,
         boolean isFinal,
-        CaptureId captureId) {
+        CaptureId captureId,
+        MerchantId callerMerchantId) {
 
     /**
      * Validates the fields.
@@ -36,14 +41,27 @@ public record CapturePaymentCommand(
     }
 
     /**
-     * Creates a capture command without an explicit capture identifier; the
-     * aggregate will generate one.
+     * Creates a capture command with an explicit capture identifier but no
+     * caller merchant check, for internal/system callers.
+     *
+     * @param paymentId the aggregate identifier
+     * @param amount amount to capture
+     * @param isFinal whether this is the final capture
+     * @param captureId an explicit capture identifier, generated if null
+     */
+    public CapturePaymentCommand(PaymentId paymentId, Money amount, boolean isFinal, CaptureId captureId) {
+        this(paymentId, amount, isFinal, captureId, null);
+    }
+
+    /**
+     * Creates a capture command without an explicit capture identifier or a
+     * caller merchant check; the aggregate will generate the capture id.
      *
      * @param paymentId the aggregate identifier
      * @param amount amount to capture
      * @param isFinal whether this is the final capture
      */
     public CapturePaymentCommand(PaymentId paymentId, Money amount, boolean isFinal) {
-        this(paymentId, amount, isFinal, null);
+        this(paymentId, amount, isFinal, null, null);
     }
 }

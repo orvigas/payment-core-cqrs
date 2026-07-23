@@ -1,6 +1,7 @@
 package com.orvigas.payment;
 
 import com.orvigas.shared.id.CaptureId;
+import com.orvigas.shared.id.MerchantId;
 import com.orvigas.shared.id.PaymentId;
 import com.orvigas.shared.id.RefundId;
 import com.orvigas.shared.money.Money;
@@ -17,6 +18,9 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
  * @param idempotencyKey client-supplied key for idempotent retries
  * @param initiatedBy who triggered the refund
  * @param refundId an explicit refund identifier, generated if null
+ * @param callerMerchantId the merchant the caller is authorized to act for; when non-null the
+ *                         aggregate rejects the command unless it matches the payment's own
+ *                         merchant. Null means the check is skipped, for internal/system callers.
  * @author orvigas@gmail.com
  */
 public record RefundPaymentCommand(
@@ -26,7 +30,8 @@ public record RefundPaymentCommand(
         RefundReason reason,
         String idempotencyKey,
         RefundInitiator initiatedBy,
-        RefundId refundId) {
+        RefundId refundId,
+        MerchantId callerMerchantId) {
 
     /**
      * Validates the fields.
@@ -46,8 +51,31 @@ public record RefundPaymentCommand(
     }
 
     /**
-     * Creates a refund command without an explicit refund identifier; the
-     * aggregate will generate one.
+     * Creates a refund command with an explicit refund identifier but no
+     * caller merchant check, for internal/system callers.
+     *
+     * @param paymentId the aggregate identifier
+     * @param amount amount to refund
+     * @param captureId the capture being refunded
+     * @param reason structured reason
+     * @param idempotencyKey client-supplied key
+     * @param initiatedBy who triggered the refund
+     * @param refundId an explicit refund identifier, generated if null
+     */
+    public RefundPaymentCommand(
+            PaymentId paymentId,
+            Money amount,
+            CaptureId captureId,
+            RefundReason reason,
+            String idempotencyKey,
+            RefundInitiator initiatedBy,
+            RefundId refundId) {
+        this(paymentId, amount, captureId, reason, idempotencyKey, initiatedBy, refundId, null);
+    }
+
+    /**
+     * Creates a refund command without an explicit refund identifier or a
+     * caller merchant check; the aggregate will generate the refund id.
      *
      * @param paymentId the aggregate identifier
      * @param amount amount to refund
@@ -63,6 +91,6 @@ public record RefundPaymentCommand(
             RefundReason reason,
             String idempotencyKey,
             RefundInitiator initiatedBy) {
-        this(paymentId, amount, captureId, reason, idempotencyKey, initiatedBy, null);
+        this(paymentId, amount, captureId, reason, idempotencyKey, initiatedBy, null, null);
     }
 }

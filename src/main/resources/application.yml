@@ -57,6 +57,7 @@ com:
           password: ${APP_USER_PASSWORD_HASH:}
           roles:
             - USER
+          merchant-id: ${APP_MERCHANT_ID:00000000-0000-0000-0000-000000000001}
 
   jackson:
     serialization:
@@ -141,15 +142,19 @@ springdoc:
 
 resilience4j:
   ratelimiter:
+    configs:
+      # Backs every rate limiter instance created dynamically at runtime
+      # (the payment endpoints key their limiter by merchant id via SpEL,
+      # so the instance name isn't known up front - see PaymentRestApiService).
+      default:
+        register-health-indicator: true
+        limit-refresh-period: 1s
+        limit-for-period: 100
     instances:
       login:
         register-health-indicator: true
         limit-refresh-period: 1m
         limit-for-period: 5
-      payment:
-        register-health-indicator: true
-        limit-refresh-period: 1s
-        limit-for-period: 100
   circuitbreaker:
     instances:
       payment-provider:

@@ -624,6 +624,120 @@ class PaymentAggregateTest {
     }
 
     @Test
+    @DisplayName("rejects a capture whose caller is not the payment's merchant")
+    void testCaptureRejectedForWrongMerchant() {
+        var paymentId = PaymentId.newId();
+        var merchantId = MerchantId.newId();
+        var amount = Money.of(10000, "USD");
+        var now = Instant.now();
+        var initEvent = new PaymentInitiated(
+                paymentId,
+                merchantId,
+                CustomerId.newId(),
+                amount,
+                new PaymentMethod("tok_visa"),
+                "key-1",
+                now.plusSeconds(86400 * 7),
+                now);
+
+        var captureCommand = new CapturePaymentCommand(paymentId, amount, true, null, MerchantId.newId());
+
+        fixture.given(initEvent, authorizedEvent(paymentId, amount, now))
+                .when(captureCommand)
+                .expectException(PaymentAccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("captures successfully when the caller is the payment's own merchant")
+    void testCaptureAllowedForOwningMerchant() {
+        var paymentId = PaymentId.newId();
+        var merchantId = MerchantId.newId();
+        var amount = Money.of(10000, "USD");
+        var now = Instant.now();
+        var initEvent = new PaymentInitiated(
+                paymentId,
+                merchantId,
+                CustomerId.newId(),
+                amount,
+                new PaymentMethod("tok_visa"),
+                "key-1",
+                now.plusSeconds(86400 * 7),
+                now);
+
+        var captureCommand = new CapturePaymentCommand(paymentId, amount, true, null, merchantId);
+
+        fixture.given(initEvent, authorizedEvent(paymentId, amount, now))
+                .when(captureCommand)
+                .expectSuccessfulHandlerExecution()
+                .expectState(p -> assertThat(p.getStatus()).isEqualTo(PaymentStatus.AUTHORIZED));
+    }
+
+    @Test
+    @DisplayName("rejects a refund whose caller is not the payment's merchant")
+    void testRefundRejectedForWrongMerchant() {
+        var paymentId = PaymentId.newId();
+        var merchantId = MerchantId.newId();
+        var amount = Money.of(10000, "USD");
+        var now = Instant.now();
+        var captureId = CaptureId.newId();
+        var initEvent = new PaymentInitiated(
+                paymentId,
+                merchantId,
+                CustomerId.newId(),
+                amount,
+                new PaymentMethod("tok_visa"),
+                "key-1",
+                now.plusSeconds(86400 * 7),
+                now);
+
+        var refundCommand = new RefundPaymentCommand(
+                paymentId,
+                amount,
+                null,
+                RefundReason.of(RefundReasonCode.DUPLICATE),
+                "refund-key-1",
+                new RefundInitiator(RefundInitiatorType.MERCHANT_USER, "user-1"),
+                null,
+                MerchantId.newId());
+
+        fixture.given(
+                        initEvent,
+                        authorizedEvent(paymentId, amount, now),
+                        chargedEvent(paymentId, captureId, amount, true, now),
+                        captureSucceededEvent(paymentId, captureId, now))
+                .when(refundCommand)
+                .expectException(PaymentAccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("returns the same refund id on a duplicate idempotency key")
+    void testRefundIdempotencyReturnsExistingRefundId() {
+        var paymentId = PaymentId.newId();
+        var amount = Money.of(10000, "USD");
+        var now = Instant.now();
+        var captureId = CaptureId.newId();
+        var refundId = RefundId.newId();
+
+        var refundCommand = new RefundPaymentCommand(
+                paymentId,
+                amount,
+                null,
+                RefundReason.of(RefundReasonCode.DUPLICATE),
+                "refund-key-1",
+                new RefundInitiator(RefundInitiatorType.MERCHANT_USER, "user-1"));
+
+        fixture.given(
+                        initiatedEvent(paymentId, amount, now),
+                        authorizedEvent(paymentId, amount, now),
+                        chargedEvent(paymentId, captureId, amount, true, now),
+                        captureSucceededEvent(paymentId, captureId, now),
+                        refundRequestedEvent(paymentId, refundId, amount, "refund-key-1", now))
+                .when(refundCommand)
+                .expectSuccessfulHandlerExecution()
+                .expectResultMessagePayload(refundId);
+    }
+
+    @Test
     @DisplayName("rejects failing a refund that is already failed")
     void testFailAlreadyFailedRefundRejected() {
         var paymentId = PaymentId.newId();

@@ -126,10 +126,12 @@ public class Payment {
      * Handles the capture payment command.
      *
      * @param command the command
+     * @return the capture's status immediately after this command is applied
      */
     @CommandHandler
-    public void handle(CapturePaymentCommand command) {
+    public CaptureStatus handle(CapturePaymentCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+        rejectIfNotOwnedByCaller(command.callerMerchantId());
         if (status != PaymentStatus.AUTHORIZED && status != PaymentStatus.PARTIALLY_CAPTURED) {
             throw new IllegalStateException(
                     "payment must be AUTHORIZED or PARTIALLY_CAPTURED to capture, current status: " + status);
@@ -163,6 +165,9 @@ public class Payment {
         Instant now = Instant.now();
         AggregateLifecycle.apply(
                 new PaymentCharged(paymentId, captureId, command.amount(), command.isFinal(), now));
+        // A capture always lands PENDING here; it only reaches SUCCEEDED once the
+        // provider confirms via ConfirmCaptureCommand, so this is never a lie.
+        return CaptureStatus.PENDING;
     }
 
     /**
@@ -223,10 +228,13 @@ public class Payment {
      * Handles the refund payment command.
      *
      * @param command the command
+     * @return the identifier of the refund this idempotency key resolves to - the existing
+     *         one on a duplicate key, a freshly generated one otherwise
      */
     @CommandHandler
-    public void handle(RefundPaymentCommand command) {
+    public RefundId handle(RefundPaymentCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+        rejectIfNotOwnedByCaller(command.callerMerchantId());
         if (!canRefund()) {
             throw new IllegalStateException("payment in state " + status + " does not allow refunds");
         }
@@ -242,7 +250,7 @@ public class Payment {
                         "idempotency key " + command.idempotencyKey()
                                 + " already used with a different amount");
             }
-            return;
+            return existingRefund.getRefundId();
         }
 
         Money totalRefunding = refundedAmount.add(command.amount());
@@ -270,6 +278,7 @@ public class Payment {
                         command.idempotencyKey(),
                         command.initiatedBy(),
                         now));
+        return refundId;
     }
 
     /**
@@ -519,6 +528,23 @@ public class Payment {
             status = PaymentStatus.REFUNDED;
         } else if (refundedAmount.isPositive()) {
             status = PaymentStatus.PARTIALLY_REFUNDED;
+        }
+    }
+
+    /**
+     * Guards capture and refund commands against acting on a payment that
+     * belongs to a different merchant than the caller claims to be. This is
+     * the object-level authorization check for those two commands: the REST
+     * layer has no way to know a path-supplied payment id's real owner
+     * without loading the aggregate, so the check rides along with the load
+     * that command dispatch already does, rather than a separate query.
+     *
+     * @param callerMerchantId the caller's merchant, or null to skip the check (internal callers)
+     */
+    private void rejectIfNotOwnedByCaller(MerchantId callerMerchantId) {
+        if (callerMerchantId != null && !callerMerchantId.equals(merchantId)) {
+            throw new PaymentAccessDeniedException(
+                    "payment " + paymentId + " does not belong to merchant " + callerMerchantId);
         }
     }
 
