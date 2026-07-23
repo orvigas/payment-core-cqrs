@@ -406,8 +406,15 @@
                 <configuration>
                     <!-- @{argLine} keeps the JaCoCo agent from prepare-agent; replacing
                          it drops coverage data silently. Mockito is attached as an
-                         agent because JDK 21+ blocks dynamic self-attachment. -->
-                    <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+                         agent because JDK 21+ blocks dynamic self attachment. The
+                         add-opens flag is required for Axon's Mongo token store: it
+                         serializes tracking tokens with XStream (the framework's
+                         "general" serializer, distinct from the Jackson event/message
+                         serializers configured in application.yml), and XStream's
+                         reflection-based converter can't reach java.util's internals
+                         under the JPMS module system without it. This only bites once
+                         a tracking event processor actually starts - see T-007. -->
+                    <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar} --add-opens java.base/java.util=ALL-UNNAMED</argLine>
                 </configuration>
             </plugin>
 

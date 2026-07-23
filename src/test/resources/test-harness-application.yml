@@ -18,6 +18,28 @@ spring:
   webflux:
     base-path: /api/v1
 
+  # @ServiceConnection supplies host/port/credentials from the Testcontainers
+  # instance but not this - without it, encoding any typed id (they all wrap
+  # UUID) fails with "the uuidRepresentation has not been specified". This is
+  # spring.mongodb.representation.uuid, not the deprecated (error-level)
+  # spring.data.mongodb.uuid-representation - see the T-007 handoff log.
+  mongodb:
+    representation:
+      uuid: standard
+
+  # This file replaces application.yml wholesale, so its Kafka producer
+  # config (JsonSerializer, idempotence) has to be repeated here - without
+  # it, Boot's Kafka autoconfiguration falls back to StringSerializer, and
+  # PaymentEventKafkaPublisher's payload records blow up trying to serialize
+  # as a String. bootstrap-servers itself comes from @TestPropertySource in
+  # whichever test class adds @EmbeddedKafka.
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
 com:
   orvigas:
     security:
@@ -32,6 +54,8 @@ axon:
     processors:
       events:
         mode: subscribing
+      payment-kafka-publisher:
+        mode: tracking
   serializer:
     events: jackson
     messages: jackson
