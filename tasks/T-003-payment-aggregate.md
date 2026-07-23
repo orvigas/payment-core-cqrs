@@ -1,7 +1,7 @@
 ---
 id: T-003
 title: Payment aggregate with commands and events
-status: review
+status: done
 owner: backend-engineer
 branch: task/T-003-payment-aggregate
 depends-on: [T-001, T-002]
