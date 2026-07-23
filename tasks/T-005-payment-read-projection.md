@@ -4,7 +4,7 @@ title: Payment read projection via Kafka to Postgres
 status: backlog
 owner: none
 branch: none
-depends-on: [T-003]
+depends-on: [T-003, T-007]
 ---
 
 # T-005: Payment read projection via Kafka to Postgres
@@ -32,5 +32,7 @@ The first query-side projection: payment events published to Kafka after durable
 ## Notes
 
 The three hardest rules in `governance/ARCHITECTURE_RULES.md` all land in this task (publish-after-commit, idempotent consumers, id heuristics). Read them before starting. Kafka topics are listed in `.claude/CLAUDE.md`.
+
+Now depends on T-007 as well: no code publishes payment events to Kafka yet, so this task has nothing real to consume until T-007 lands.
 
 ## Handoff log
