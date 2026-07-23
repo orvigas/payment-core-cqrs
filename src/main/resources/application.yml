@@ -10,6 +10,20 @@ spring:
       database: payment-core
       uri: mongodb://localhost:27017/payment-core
 
+  # The driver refuses to encode a bare UUID at all unless this is set
+  # explicitly - the historical per-language encodings (JAVA_LEGACY,
+  # C_SHARP_LEGACY, ...) are mutually incompatible byte layouts, so newer
+  # driver versions require an explicit, deliberate choice rather than
+  # silently picking one. STANDARD is the cross-driver RFC 4122 encoding.
+  # Every typed id in shared.id wraps a UUID, so this affects any document
+  # that stores one directly - PaymentIdempotencyDocument here, and the
+  # event store/token store collections Axon itself writes to. Note this
+  # lives under spring.mongodb, not spring.data.mongodb: Boot 4.0 deprecated
+  # (error level) spring.data.mongodb.uuid-representation in favor of this key.
+  mongodb:
+    representation:
+      uuid: standard
+
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/payment_core
     username: payment_user
@@ -29,10 +43,21 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
-      retries: 3
+      retries: 2147483647
       properties:
+        # Idempotence plus acks=all guarantees a retry never reorders or
+        # duplicates a record within a partition - required for the payment
+        # topics, since ordering per payment id is load-bearing for the read
+        # projection (T-005). delivery.timeout.ms bounds how long the
+        # producer keeps retrying a single record before giving up.
+        enable.idempotence: true
+        delivery.timeout.ms: 120000
         linger.ms: 10
         batch.size: 16384
+        # The eventType field on every payload already discriminates the
+        # payload shape; a Java-FQCN type header would leak an internal
+        # package name onto a wire contract other services may consume.
+        spring.json.add.type.headers: false
     consumer:
       bootstrap-servers: localhost:9092
       group-id: payment-core-group
@@ -76,6 +101,13 @@ axon:
     processors:
       events:
         mode: subscribing
+      # Tracking mode is load-bearing here, not a style choice: a tracking
+      # processor reads events back out of the Mongo event store rather than
+      # receiving them in-process from the committing unit of work, so it
+      # physically cannot observe an event before the store's append has
+      # durably succeeded. See axon-subscribing-vs-tracking-durability.md.
+      payment-kafka-publisher:
+        mode: tracking
   serializer:
     events: jackson
     messages: jackson

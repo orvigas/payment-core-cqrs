@@ -64,7 +64,7 @@ R2DBC has no relationship-mapping annotations and no in-memory database equivale
 | Confluent Kafka | 7.4.0 (Docker image) | Single broker, 3 partitions per topic |
 | Confluent ZooKeeper | 7.4.0 (Docker image) | Kafka coordination |
 
-Topics: `payment-initiated`, `payment-charged`, `payment-completed`, `payment-failed`.
+Topics: `payment-initiated`, `payment-charged`, `payment-completed`, `payment-failed`, `payment-refunded`. `payment-charged` carries the whole authorize-through-capture phase and `payment-failed` also carries authorization expiry; `payment-refunded` covers the refund sub-lifecycle. See ADR-002 for the full event-type-to-topic mapping and why it isn't one topic per event type.
 
 ## Resilience
 

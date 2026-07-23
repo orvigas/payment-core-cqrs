@@ -23,6 +23,13 @@ services:
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://otel-collector:9411/api/v2/spans
       MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: 'true'
       LOGGING_LEVEL_COM_ORVIGAS: DEBUG
+      # The java launcher reads this automatically, no Dockerfile CMD change
+      # needed. Axon's Mongo token store serializes tracking tokens with
+      # XStream (the "general" serializer, separate from the Jackson
+      # event/message serializers), and XStream's reflection-based converter
+      # can't reach java.util's internals under the JPMS module system
+      # without this - see the T-007 handoff log.
+      JDK_JAVA_OPTIONS: "--add-opens java.base/java.util=ALL-UNNAMED"
     depends_on:
       postgres:
         condition: service_healthy

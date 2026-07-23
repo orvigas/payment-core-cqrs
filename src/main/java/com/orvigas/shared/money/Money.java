@@ -1,5 +1,6 @@
 package com.orvigas.shared.money;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.Currency;
 import java.util.Objects;
 
@@ -100,6 +101,7 @@ public record Money(long minorUnits, Currency currency) implements Comparable<Mo
      *
      * @return {@code true} if {@code minorUnits} is greater than zero
      */
+    @JsonIgnore
     public boolean isPositive() {
         return minorUnits > 0;
     }
@@ -109,6 +111,7 @@ public record Money(long minorUnits, Currency currency) implements Comparable<Mo
      *
      * @return {@code true} if {@code minorUnits} is zero
      */
+    @JsonIgnore
     public boolean isZero() {
         return minorUnits == 0;
     }
