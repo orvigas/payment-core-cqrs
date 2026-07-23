@@ -32,6 +32,7 @@ import com.orvigas.shared.id.MerchantId;
 import com.orvigas.shared.id.PaymentId;
 import com.orvigas.shared.id.RefundId;
 import com.orvigas.shared.money.Money;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -56,7 +57,12 @@ class PaymentEventKafkaPublisherTest {
     @SuppressWarnings("unchecked")
     private final KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
 
-    private final PaymentEventKafkaPublisher publisher = new PaymentEventKafkaPublisher(kafkaTemplate);
+    // A real in-memory registry rather than a mock: the point of these
+    // assertions is that a metric with the right name and tags actually
+    // ends up registered, which a mock can't demonstrate.
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    private final PaymentEventKafkaPublisher publisher = new PaymentEventKafkaPublisher(kafkaTemplate, meterRegistry);
 
     private final PaymentId paymentId = PaymentId.newId();
     private final Instant occurredAt = Instant.parse("2026-07-22T10:15:30Z");
@@ -172,7 +178,7 @@ class PaymentEventKafkaPublisherTest {
     }
 
     @Test
-    @DisplayName("a publish failure is swallowed, not propagated to the caller")
+    @DisplayName("a publish failure is swallowed, not propagated to the caller, but recorded as a failure metric")
     void testPublishFailureDoesNotPropagate() {
         CompletableFuture<SendResult<String, Object>> failedSend = new CompletableFuture<>();
         failedSend.completeExceptionally(new RuntimeException("broker unavailable"));
@@ -182,6 +188,39 @@ class PaymentEventKafkaPublisherTest {
         assertThatCode(() -> publisher.on(event)).doesNotThrowAnyException();
 
         verify(kafkaTemplate).send(eq(PaymentKafkaTopics.PAYMENT_COMPLETED), eq(paymentId.value().toString()), any());
+        assertThat(meterRegistry.get("payment.kafka.publish.total")
+                        .tag("eventType", "PaymentCompleted")
+                        .tag("topic", PaymentKafkaTopics.PAYMENT_COMPLETED)
+                        .tag("outcome", "failure")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("a successful publish is recorded as a success metric, not a failure one")
+    void testSuccessfulPublishRecordsSuccessMetric() {
+        successfulSend(PaymentKafkaTopics.PAYMENT_INITIATED);
+        var event = new PaymentInitiated(
+                paymentId, MerchantId.newId(), CustomerId.newId(), Money.of(1000, "USD"),
+                new PaymentMethod("tok"), "idem", occurredAt.plusSeconds(60), occurredAt);
+
+        publisher.on(event);
+
+        assertThat(meterRegistry.get("payment.kafka.publish.total")
+                        .tag("eventType", "PaymentInitiated")
+                        .tag("topic", PaymentKafkaTopics.PAYMENT_INITIATED)
+                        .tag("outcome", "success")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
+        assertThat(meterRegistry.get("payment.kafka.publish")
+                        .tag("eventType", "PaymentInitiated")
+                        .tag("topic", PaymentKafkaTopics.PAYMENT_INITIATED)
+                        .tag("outcome", "success")
+                        .timer()
+                        .count())
+                .isEqualTo(1L);
     }
 
     @Test

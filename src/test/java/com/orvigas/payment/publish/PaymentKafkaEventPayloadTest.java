@@ -27,7 +27,9 @@ import com.orvigas.shared.id.MerchantId;
 import com.orvigas.shared.id.PaymentId;
 import com.orvigas.shared.id.RefundId;
 import com.orvigas.shared.money.Money;
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -202,7 +204,6 @@ class PaymentKafkaEventPayloadTest {
         assertThat(payload.captureId()).isEqualTo(captureId.value().toString());
         assertThat(payload.amountMinorUnits()).isEqualTo(1500);
         assertThat(payload.reasonCode()).isEqualTo("REQUESTED_BY_CUSTOMER");
-        assertThat(payload.reasonNotes()).isNull();
         assertThat(payload.idempotencyKey()).isEqualTo("refund-idem-1");
         assertThat(payload.initiatedByType()).isEqualTo("MERCHANT_USER");
         assertThat(payload.initiatedById()).isEqualTo("merchant-user-1");
@@ -220,7 +221,16 @@ class PaymentKafkaEventPayloadTest {
         var payload = RefundRequestedPayload.from(event);
 
         assertThat(payload.captureId()).isNull();
-        assertThat(payload.reasonNotes()).isEqualTo("duplicate charge noticed by customer");
+    }
+
+    @Test
+    @DisplayName("RefundRequested's free-text reason notes never reach the wire payload")
+    void testRefundRequestedPayloadNeverExposesReasonNotes() {
+        var componentNames = Arrays.stream(RefundRequestedPayload.class.getRecordComponents())
+                .map(RecordComponent::getName)
+                .toList();
+
+        assertThat(componentNames).doesNotContain("reasonNotes", "notes");
     }
 
     @Test

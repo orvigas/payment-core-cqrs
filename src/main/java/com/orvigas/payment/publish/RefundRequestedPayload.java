@@ -8,13 +8,19 @@ import java.util.Objects;
  * Kafka payload for {@link RefundRequested}, published to
  * {@value PaymentKafkaTopics#PAYMENT_REFUNDED}.
  *
+ * <p>{@code RefundReason.notes()} is intentionally left off the wire: it's
+ * free text a customer or merchant user can type, and
+ * {@code governance/SECURITY_POLICY.md} treats Kafka topics as long-lived
+ * records where retention and replay make deleting a stray PII leak
+ * impractical. The structured {@code reasonCode} carries everything a
+ * downstream consumer needs for reporting.
+ *
  * @param paymentId the payment identifier
  * @param refundId the refund entity identifier
  * @param amountMinorUnits amount being refunded, in the currency's minor units
  * @param currencyCode ISO 4217 currency code
  * @param captureId the capture being refunded, or null when the provider doesn't require one
  * @param reasonCode structured refund reason code
- * @param reasonNotes optional free-text explanation, or null
  * @param idempotencyKey client-supplied key for idempotent retries
  * @param initiatedByType the kind of actor that initiated the refund
  * @param initiatedById the actor's identifier within its own system
@@ -28,7 +34,6 @@ public record RefundRequestedPayload(
         String currencyCode,
         String captureId,
         String reasonCode,
-        String reasonNotes,
         String idempotencyKey,
         String initiatedByType,
         String initiatedById,
@@ -54,7 +59,8 @@ public record RefundRequestedPayload(
     }
 
     /**
-     * Builds the wire payload from the domain event.
+     * Builds the wire payload from the domain event. The reason's free-text
+     * notes are deliberately left off the wire - see the class Javadoc.
      *
      * @param event the domain event
      * @return the Kafka payload
@@ -69,7 +75,6 @@ public record RefundRequestedPayload(
                 event.amount().currency().getCurrencyCode(),
                 captureId,
                 event.reason().code().name(),
-                event.reason().notes(),
                 event.idempotencyKey(),
                 event.initiatedBy().type().name(),
                 event.initiatedBy().id(),

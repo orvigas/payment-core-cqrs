@@ -85,6 +85,28 @@ Three options were on the table:
   either extreme.
 - `governance/TECH_STACK.md` should be updated to list all five topics; that
   edit is out of this ADR's scope but is flagged in the T-007 handoff log.
+- Delivery is at-least-once, not exactly-once: the publisher's tracking
+  processor commits its position after a successful send, so a crash between
+  the send succeeding and the token commit redelivers that event on restart.
+  Every consumer of these five topics (T-005's read projection first, any
+  future one after it) must treat reprocessing the same payload as a safe
+  no-op rather than assume single delivery.
+- This decision is also what activates the first Axon tracking event
+  processor in the codebase, which is the first real exercise of the Mongo
+  token store's default XStream-based serializer. XStream has a history of
+  reflection-based deserialization CVEs; the token bytes here are only ever
+  written and read by this application (never accepted from an external
+  source), which limits the exposure, but whether Axon's Mongo extension can
+  swap the token store to the Jackson serializer already used for events and
+  messages is worth a follow-up ticket rather than blocking this decision.
+
+## Idempotent consumption
+
+Every payload's own `eventType`/`paymentId` and, where present, capture or
+refund id give a consumer everything it needs to detect and no-op a
+redelivered message (e.g. an upsert keyed on payment id plus event type
+rather than a blind insert). See `PaymentKafkaEvent`'s Javadoc for the same
+note at the code level.
 
 ## References
 

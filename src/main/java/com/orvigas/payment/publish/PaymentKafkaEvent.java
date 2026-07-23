@@ -12,6 +12,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * serialize an Axon {@code EventMessage} or a domain event record directly
  * onto a topic.
  *
+ * <p>Consumers (T-005's read projection, and any future one) must be
+ * idempotent against redelivery of the same payload: a tracking-processor
+ * crash between a successful Kafka send and the token store commit will
+ * redeliver the event on restart, so "already applied this exact payload"
+ * has to be a safe no-op rather than an assumption that delivery happens
+ * exactly once.
+ *
  * @author orvigas@gmail.com
  */
 public sealed interface PaymentKafkaEvent permits
@@ -32,6 +39,11 @@ public sealed interface PaymentKafkaEvent permits
      * The Kafka topic this payload belongs on. See {@code adr-002} for the
      * mapping from domain event type to topic.
      *
+     * <p>Deliberately not {@code @JsonProperty}-annotated: this is routing
+     * metadata the publisher uses to pick a destination, not part of the
+     * wire payload - a consumer already knows the topic a record arrived on
+     * without needing it repeated inside the record's own body.
+     *
      * @return the destination topic name
      */
     String topic();
@@ -48,12 +60,14 @@ public sealed interface PaymentKafkaEvent permits
      * Discriminator identifying which event this payload represents, for
      * topics that carry more than one event type.
      *
-     * <p>{@code @JsonProperty} is required here, not optional polish: none of
-     * these three methods are canonical record components, and Jackson only
-     * auto-detects bean-style {@code getXxx()}/{@code isXxx()} accessors -
-     * without the explicit annotation, the field silently disappears from
-     * the wire payload instead of failing loudly, which is exactly what
-     * happened the first time this shipped (see the T-007 handoff log).
+     * <p>Unlike {@link #topic()}, this one has to reach the wire, so it
+     * carries {@code @JsonProperty}. That annotation is required, not
+     * optional polish: none of the three methods on this interface are
+     * canonical record components, and Jackson only auto-detects bean-style
+     * {@code getXxx()}/{@code isXxx()} accessors - without it, the field
+     * silently disappears from the payload instead of failing loudly, which
+     * is exactly what happened the first time this shipped (see the T-007
+     * handoff log).
      *
      * @return the event type name
      */
@@ -62,7 +76,8 @@ public sealed interface PaymentKafkaEvent permits
 
     /**
      * Payload schema revision. Bump when a field is added, removed, or
-     * retyped in a way that isn't purely additive-and-optional.
+     * retyped in a way that isn't purely additive-and-optional. Carries
+     * {@code @JsonProperty} for the same reason {@link #eventType()} does.
      *
      * @return the schema version
      */

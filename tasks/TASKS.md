@@ -10,7 +10,6 @@ Keep this table in sync with the task files; the files are authoritative.
 | [T-004](T-004-jwt-security-chain.md) | Reactive JWT security chain | done | opencode | T-001 |
 | [T-005](T-005-payment-read-projection.md) | Payment read projection via Kafka to Postgres | backlog | none | T-003, T-007 |
 | [T-006](T-006-opencode-codegraph-mcp.md) | Configure codegraph MCP server for OpenCode | done | opencode | — |
-<<<<<<< HEAD
 | [T-007](T-007-payment-kafka-publisher.md) | Kafka event publisher for payment domain events | review | backend-engineer | T-003 |
 | [T-008](T-008-payment-rest-api.md) | Payment REST API | review | general | T-003, T-004 |
 | [T-009](T-009-merchant-aggregate.md) | Merchant aggregate with onboarding and lifecycle commands | done | general | T-001, T-002 |

@@ -2,6 +2,7 @@ package com.orvigas.payment.publish;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.orvigas.payment.AuthorizePaymentCommand;
 import com.orvigas.payment.CapturePaymentCommand;
@@ -160,7 +161,7 @@ class PaymentEventKafkaPublisherIntegrationTest extends AbstractIntegrationTest 
     private Map<String, Object> readValue(ConsumerRecord<String, String> record) {
         try {
             return objectMapper.readValue(record.value(), Map.class);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             throw new IllegalStateException("could not parse Kafka payload as JSON: " + record.value(), e);
         }
     }
