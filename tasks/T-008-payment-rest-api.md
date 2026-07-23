@@ -1,8 +1,8 @@
 ---
 id: T-008
 title: Payment REST API
-status: in-progress
-owner: general
+status: review
+owner: backend-engineer
 branch: task/T-008-payment-rest-api
 depends-on: [T-003, T-004]
 ---
@@ -37,3 +37,30 @@ The `Payment` aggregate becomes reachable over HTTP: a merchant or client can in
 The merchant-`ACTIVE` precondition on `initiate` is not enforced yet (no `Merchant` aggregate exists — see T-009/T-010); this task can either stub that check or land ahead of T-010 and wire it in later. Don't block on it.
 
 ## Handoff log
+
+### 2026-07-22 — backend-engineer
+
+**What was done**
+- Created `PaymentController` with 3 endpoints: POST `/payments`, POST `/{id}/captures`, POST `/{id}/refunds`
+- Created `PaymentRestApiService` that translates REST DTOs to Axon commands via `CommandGateway.send()` (non-blocking, `Mono.fromFuture`)
+- Request/response DTOs as Java records with Jakarta Bean Validation and OpenAPI annotations
+- Idempotency for initiate via `PaymentIdempotencyRepository` (reused from T-003); returns 200 on duplicate key, 201 on new
+- Idempotency for refunds handled by aggregate (pass-through)
+- Error handling maps `IllegalStateException`/`IllegalArgumentException` (direct or wrapped in `CommandExecutionException`) → 400 RFC 7807, `AggregateNotFoundException` → 404, validation errors → 400
+- Integration test (`PaymentRestApiIntegrationTest`) with 13 scenarios covering happy path (initiate → authorize → capture → confirm → refund), duplicate keys, validation errors, unknown payments, invariant violations, and unauthenticated access
+
+**Files outside scope that were modified**
+- `CapturePaymentCommand.java` — added optional `CaptureId captureId` field (backward-compatible, existing 3-arg constructor preserved)
+- `RefundPaymentCommand.java` — added optional `RefundId refundId` field (backward-compatible, existing 6-arg constructor preserved)
+- `Payment.java` — aggregate handlers use provided `captureId`/`refundId` from commands when non-null
+- `GlobalErrorHandler.java` — added handlers for `IllegalStateException`, `IllegalArgumentException`, `CommandExecutionException`, `AggregateNotFoundException`
+- `Money.java` — added `@JsonIgnore` on `isZero()`/`isPositive()` and `@JsonIgnoreProperties(ignoreUnknown = true)` to prevent Jackson serialization conflicts with Axon event store
+- `test-harness-application.yml` — added `spring.data.mongodb.uuid-representation: standard`
+- `MongoConfig.java` (new in `com.orvigas.config`) — `MongoClientSettingsBuilderCustomizer` setting `UuidRepresentation.STANDARD` for Axon event store compatibility
+
+**Known issues**
+- Refund duplicate idempotency returns a different `refundId` on the second response (aggregate handles idempotency internally but doesn't return the original ID; the REST layer generates a new one each time). The idempotency guarantee holds (no duplicate refund created), but the response body differs. A future task could add a refund idempotency store similar to payment initiation.
+- No rate limiting wired to the payment endpoints yet (the `payment` rate limiter instance exists in config but isn't applied).
+
+**Test results**
+- `mvn verify`: 129 tests, 0 failures, 0 errors, coverage 95%+ met
