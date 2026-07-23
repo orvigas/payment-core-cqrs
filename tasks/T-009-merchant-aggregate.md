@@ -1,7 +1,7 @@
 ---
 id: T-009
 title: Merchant aggregate with onboarding and lifecycle commands
-status: in-progress
+status: review
 owner: general
 branch: task/T-009-merchant-aggregate
 depends-on: [T-001, T-002]
@@ -35,3 +35,5 @@ A `Merchant` aggregate exists on the command side, modeling onboarding, KYB veri
 This is the write-side aggregate only. The lightweight status projection that the payment flow reads (`knowledge/domain/merchant.md`, "Design notes") is T-010, and depends on this task's events existing first.
 
 ## Handoff log
+
+- **2026-07-22** Agent implemented: Merchant aggregate with 8 commands, 8 events, 11 value objects/enums, 20 unit tests covering every valid/invalid transition. Preconditions enforced (activate requires KYB VERIFIED + settlement VERIFIED, close rejects open settlements, fee changes forward-only). PII excluded from toString. `mvn verify` passes. PR #8 opened on `task/T-009-merchant-aggregate`.

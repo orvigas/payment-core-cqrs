@@ -1,7 +1,7 @@
 ---
 id: T-012
 title: Observability wiring (metrics, tracing, structured logs)
-status: in-progress
+status: review
 owner: general
 branch: task/T-012-observability-wiring
 depends-on: []
@@ -35,3 +35,5 @@ The app actually emits the metrics, traces, and structured logs that `monitoring
 This task is infrastructure plumbing, not a specific feature's instrumentation — keep it to the shared observability configuration and a small number of representative metrics/spans (for example, on the payment command path). Per-feature instrumentation as new features land is expected to follow this pattern, not be re-litigated each time.
 
 ## Handoff log
+
+- **2026-07-22** Agent implemented: Micrometer metrics (counters/gauge/timer), Brave tracing with Reactor context propagation, structured JSON logging via logstash-logback-encoder with Loki shipping and sensitive-data redaction, Grafana dashboard. Verified zipkin-reporter artifacts — all three present, no missing dep. `mvn verify` passes (133 tests). PR #9 opened on `task/T-012-observability-wiring`.
