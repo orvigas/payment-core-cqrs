@@ -159,7 +159,7 @@ public class Payment {
             throw new IllegalStateException("authorization has expired");
         }
 
-        CaptureId captureId = CaptureId.newId();
+        CaptureId captureId = command.captureId() != null ? command.captureId() : CaptureId.newId();
         Instant now = Instant.now();
         AggregateLifecycle.apply(
                 new PaymentCharged(paymentId, captureId, command.amount(), command.isFinal(), now));
@@ -258,7 +258,7 @@ public class Payment {
                             + capturedAmount.minorUnits());
         }
 
-        RefundId refundId = RefundId.newId();
+        RefundId refundId = command.refundId() != null ? command.refundId() : RefundId.newId();
         Instant now = Instant.now();
         AggregateLifecycle.apply(
                 new RefundRequested(

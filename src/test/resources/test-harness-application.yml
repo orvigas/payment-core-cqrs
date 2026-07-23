@@ -15,6 +15,10 @@ spring:
   application:
     name: payment-core
 
+  data:
+    mongodb:
+      uuid-representation: standard
+
   webflux:
     base-path: /api/v1
 
