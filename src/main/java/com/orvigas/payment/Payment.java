@@ -8,19 +8,17 @@ import com.orvigas.shared.id.RefundId;
 import com.orvigas.shared.money.Money;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.modelling.command.AggregateLifecycle;
-import org.axonframework.modelling.command.AggregateMember;
 import org.axonframework.spring.stereotype.Aggregate;
 
 /**
@@ -33,8 +31,6 @@ import org.axonframework.spring.stereotype.Aggregate;
  */
 @Aggregate
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Setter(AccessLevel.PRIVATE)
-@Slf4j
 public class Payment {
 
     @AggregateIdentifier
@@ -53,15 +49,14 @@ public class Payment {
     private Instant updatedAt;
     private PaymentStatus status;
 
-    @AggregateMember
     private final Map<CaptureId, Capture> captures = new HashMap<>();
 
-    @AggregateMember
     private final Map<RefundId, Refund> refunds = new HashMap<>();
 
     private Money capturedAmount;
     private Money refundedAmount;
     private final List<String> idempotencyKeysForRefunds = new ArrayList<>();
+    private boolean finalCaptureSucceeded;
 
     /**
      * Constructor that handles the initiate payment command.
@@ -69,7 +64,7 @@ public class Payment {
      * @param command the initiate command
      */
     @CommandHandler
-    public Payment(InitiatePaymentCommand command) {
+    public Payment(CreatePaymentCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         AggregateLifecycle.apply(
                 new PaymentInitiated(
@@ -131,11 +126,20 @@ public class Payment {
                     "payment must be AUTHORIZED or PARTIALLY_CAPTURED to capture, current status: " + status);
         }
 
+        if (finalCaptureSucceeded) {
+            throw new IllegalStateException("a final capture has already succeeded for this payment");
+        }
+
         if (!command.amount().isPositive()) {
             throw new IllegalArgumentException("capture amount must be positive");
         }
 
         Money totalCaptured = capturedAmount.add(command.amount());
+        for (Capture capture : captures.values()) {
+            if (capture.getStatus() == CaptureStatus.PENDING) {
+                totalCaptured = totalCaptured.add(capture.getAmount());
+            }
+        }
         if (totalCaptured.compareTo(authorizedAmount) > 0) {
             throw new IllegalStateException(
                     "captured amount " + totalCaptured.minorUnits() + " exceeds authorized amount "
@@ -222,8 +226,17 @@ public class Payment {
             throw new IllegalArgumentException("refund amount must be positive");
         }
 
-        Money totalRefunding =
-                refundedAmount.add(command.amount());
+        Refund existingRefund = findRefundByIdempotencyKey(command.idempotencyKey());
+        if (existingRefund != null) {
+            if (!existingRefund.getAmount().equals(command.amount())) {
+                throw new IllegalStateException(
+                        "idempotency key " + command.idempotencyKey()
+                                + " already used with a different amount");
+            }
+            return;
+        }
+
+        Money totalRefunding = refundedAmount.add(command.amount());
         for (Refund refund : refunds.values()) {
             if (refund.getStatus() == RefundStatus.REQUESTED || refund.getStatus() == RefundStatus.PENDING) {
                 totalRefunding = totalRefunding.add(refund.getAmount());
@@ -243,8 +256,10 @@ public class Payment {
                         paymentId,
                         refundId,
                         command.amount(),
+                        command.captureId(),
                         command.reason(),
                         command.idempotencyKey(),
+                        command.initiatedBy(),
                         now));
     }
 
@@ -293,6 +308,27 @@ public class Payment {
     }
 
     /**
+     * Handles the mark refund pending command (internal).
+     *
+     * @param command the command
+     */
+    @CommandHandler
+    public void handle(MarkRefundPendingCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+        Refund refund = refunds.get(command.refundId());
+        if (refund == null) {
+            throw new IllegalStateException("refund not found: " + command.refundId());
+        }
+
+        if (refund.getStatus() != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("refund must be REQUESTED to mark pending, current status: " + refund.getStatus());
+        }
+
+        Instant now = Instant.now();
+        AggregateLifecycle.apply(new RefundPending(paymentId, command.refundId(), now));
+    }
+
+    /**
      * Handles the confirm refund command (internal).
      *
      * @param command the command
@@ -327,8 +363,9 @@ public class Payment {
             throw new IllegalStateException("refund not found: " + command.refundId());
         }
 
-        if (refund.getStatus() == RefundStatus.SUCCEEDED) {
-            throw new IllegalStateException("refund cannot be failed after succeeding");
+        if (refund.getStatus() == RefundStatus.SUCCEEDED || refund.getStatus() == RefundStatus.FAILED) {
+            throw new IllegalStateException(
+                    "refund cannot be failed in status " + refund.getStatus());
         }
 
         Instant now = Instant.now();
@@ -350,6 +387,7 @@ public class Payment {
         status = PaymentStatus.INITIATED;
         capturedAmount = Money.zero(amount.currency());
         refundedAmount = Money.zero(amount.currency());
+        finalCaptureSucceeded = false;
     }
 
     @EventSourcingHandler
@@ -397,11 +435,22 @@ public class Payment {
         Refund refund = new Refund(
                 event.refundId(),
                 event.amount(),
+                event.captureId(),
                 event.reason(),
                 event.idempotencyKey(),
+                event.initiatedBy(),
                 event.occurredAt());
         refunds.put(event.refundId(), refund);
         idempotencyKeysForRefunds.add(event.idempotencyKey());
+        updatedAt = event.occurredAt();
+    }
+
+    @EventSourcingHandler
+    public void on(RefundPending event) {
+        Refund refund = refunds.get(event.refundId());
+        if (refund != null) {
+            refund.markPending();
+        }
         updatedAt = event.occurredAt();
     }
 
@@ -431,6 +480,9 @@ public class Payment {
         if (capture != null) {
             capture.succeed(event.providerReference(), event.occurredAt());
             capturedAmount = capturedAmount.add(capture.getAmount());
+            if (capture.isFinal()) {
+                finalCaptureSucceeded = true;
+            }
             updatePaymentStatusFromCapture();
         }
         updatedAt = event.occurredAt();
@@ -461,6 +513,15 @@ public class Payment {
         }
     }
 
+    private Refund findRefundByIdempotencyKey(String idempotencyKey) {
+        for (Refund refund : refunds.values()) {
+            if (refund.getIdempotencyKey().equals(idempotencyKey)) {
+                return refund;
+            }
+        }
+        return null;
+    }
+
     private boolean canRefund() {
         return status == PaymentStatus.CAPTURED
                 || status == PaymentStatus.PARTIALLY_CAPTURED
@@ -472,6 +533,7 @@ public class Payment {
         return paymentStatus == PaymentStatus.COMPLETED
                 || paymentStatus == PaymentStatus.FAILED
                 || paymentStatus == PaymentStatus.EXPIRED
+                || paymentStatus == PaymentStatus.PARTIALLY_REFUNDED
                 || paymentStatus == PaymentStatus.REFUNDED;
     }
 
@@ -538,10 +600,10 @@ public class Payment {
     }
 
     public Map<CaptureId, Capture> getCaptures() {
-        return captures;
+        return Collections.unmodifiableMap(captures);
     }
 
     public Map<RefundId, Refund> getRefunds() {
-        return refunds;
+        return Collections.unmodifiableMap(refunds);
     }
 }

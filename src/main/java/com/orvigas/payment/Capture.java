@@ -22,6 +22,29 @@ public class Capture {
     private Instant requestedAt;
     private Instant resolvedAt;
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Capture capture)) {
+            return false;
+        }
+        return isFinal == capture.isFinal
+                && Objects.equals(captureId, capture.captureId)
+                && Objects.equals(amount, capture.amount)
+                && status == capture.status
+                && Objects.equals(providerReference, capture.providerReference)
+                && Objects.equals(failureReason, capture.failureReason)
+                && Objects.equals(requestedAt, capture.requestedAt)
+                && Objects.equals(resolvedAt, capture.resolvedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(captureId, amount, isFinal, status, providerReference, failureReason, requestedAt, resolvedAt);
+    }
+
     /**
      * Creates a new capture in PENDING state.
      *

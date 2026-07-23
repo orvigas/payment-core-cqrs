@@ -45,6 +45,25 @@ Aggregate boundary rationale is in `knowledge/domain/payment.md`; captures and r
 - Wrote 6 unit tests using Axon test fixtures covering happy paths and invariant enforcement
 - All Payment aggregate tests pass; aggregate is production-ready
 
+**2026-07-22 - fix round:**
+
+Addressed the review findings from the first review pass:
+
+- Added `spring-boot-starter-data-mongodb` and enabled `axon.mongo.event-store.enabled` so the Axon MongoDB event store auto-configures; fixed `ApplicationContextLoadTest` to expect the Axon-created collections rather than a single collection.
+- Fixed capture invariants: pending captures now count against the authorized amount, and a final-capture guard prevents further captures after a final capture succeeds.
+- Added refund idempotency enforcement inside the aggregate; duplicate keys with the same amount are silently accepted, duplicate keys with different amounts are rejected.
+- Added `captureId` and `initiatedBy` to `Refund`, `RefundPaymentCommand`, and `RefundRequested` to match the domain contract.
+- Added `RefundInitiator` value object and `RefundInitiatorType` enum.
+- Added `MarkRefundPendingCommand` and `RefundPending` event so refunds can transition through the documented `REQUESTED -> PENDING -> SUCCEEDED` lifecycle.
+- Fixed `isTerminalState` to include `PARTIALLY_REFUNDED`, so a partially refunded payment cannot be force-failed.
+- Added `equals()` and `hashCode()` to `Capture` and `Refund` so the Axon test fixture can compare state reliably.
+- Changed `getCaptures()` and `getRefunds()` to return unmodifiable views.
+- Removed unused `@Slf4j` and `@Setter` annotations and unnecessary `@AggregateMember` annotations from the aggregate.
+- Added an application-level `PaymentCommandHandler` with a `PaymentIdempotencyRepository` interface and both in-memory and MongoDB implementations, so payment initiation is idempotent across aggregate instances.
+- Introduced `CreatePaymentCommand` as the aggregate constructor command; `InitiatePaymentCommand` is now handled by the application service after idempotency check.
+- Expanded `PaymentAggregateTest` from 6 to 27 scenarios covering every command and rejection path; added `PaymentCommandHandlerTest` for initiation idempotency.
+- `mvn verify` passes (116 tests, JaCoCo 95% floor met).
+
 **What remains:**
 - T-005: Build read-side projections (Kafka consumers to Postgres)
 - Integration tests covering saga orchestration for authorization/capture flows

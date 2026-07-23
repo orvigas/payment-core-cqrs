@@ -1,5 +1,6 @@
 package com.orvigas.payment;
 
+import com.orvigas.shared.id.CaptureId;
 import com.orvigas.shared.id.RefundId;
 import com.orvigas.shared.money.Money;
 import java.time.Instant;
@@ -15,33 +16,69 @@ public class Refund {
 
     private final RefundId refundId;
     private final Money amount;
+    private final CaptureId captureId;
     private final RefundReason reason;
     private final String idempotencyKey;
+    private final RefundInitiator initiatedBy;
     private RefundStatus status;
     private String providerReference;
     private FailureReason failureReason;
     private Instant requestedAt;
     private Instant resolvedAt;
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Refund refund)) {
+            return false;
+        }
+        return Objects.equals(refundId, refund.refundId)
+                && Objects.equals(amount, refund.amount)
+                && Objects.equals(captureId, refund.captureId)
+                && Objects.equals(reason, refund.reason)
+                && Objects.equals(idempotencyKey, refund.idempotencyKey)
+                && Objects.equals(initiatedBy, refund.initiatedBy)
+                && status == refund.status
+                && Objects.equals(providerReference, refund.providerReference)
+                && Objects.equals(failureReason, refund.failureReason)
+                && Objects.equals(requestedAt, refund.requestedAt)
+                && Objects.equals(resolvedAt, refund.resolvedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                refundId, amount, captureId, reason, idempotencyKey, initiatedBy, status,
+                providerReference, failureReason, requestedAt, resolvedAt);
+    }
+
     /**
      * Creates a new refund in REQUESTED state.
      *
      * @param refundId the refund identifier
      * @param amount the amount being refunded
+     * @param captureId the capture being refunded, when the provider requires it; otherwise null
      * @param reason structured reason plus optional notes
      * @param idempotencyKey client-supplied key for idempotent retries
+     * @param initiatedBy who triggered the refund
      * @param requestedAt when the refund was requested
      */
     public Refund(
             RefundId refundId,
             Money amount,
+            CaptureId captureId,
             RefundReason reason,
             String idempotencyKey,
+            RefundInitiator initiatedBy,
             Instant requestedAt) {
         this.refundId = Objects.requireNonNull(refundId, "refundId must not be null");
         this.amount = Objects.requireNonNull(amount, "amount must not be null");
+        this.captureId = captureId;
         this.reason = Objects.requireNonNull(reason, "reason must not be null");
         this.idempotencyKey = Objects.requireNonNull(idempotencyKey, "idempotencyKey must not be null");
+        this.initiatedBy = Objects.requireNonNull(initiatedBy, "initiatedBy must not be null");
         this.status = RefundStatus.REQUESTED;
         this.requestedAt = Objects.requireNonNull(requestedAt, "requestedAt must not be null");
     }
@@ -54,12 +91,20 @@ public class Refund {
         return amount;
     }
 
+    public CaptureId getCaptureId() {
+        return captureId;
+    }
+
     public RefundReason getReason() {
         return reason;
     }
 
     public String getIdempotencyKey() {
         return idempotencyKey;
+    }
+
+    public RefundInitiator getInitiatedBy() {
+        return initiatedBy;
     }
 
     public RefundStatus getStatus() {
@@ -115,8 +160,8 @@ public class Refund {
      * @param resolvedAt when the provider declined
      */
     public void fail(FailureReason failureReason, Instant resolvedAt) {
-        if (status == RefundStatus.SUCCEEDED) {
-            throw new IllegalStateException("refund must not be SUCCEEDED to fail, current status: " + status);
+        if (status == RefundStatus.SUCCEEDED || status == RefundStatus.FAILED) {
+            throw new IllegalStateException("refund must not be SUCCEEDED or FAILED to fail, current status: " + status);
         }
         this.failureReason = Objects.requireNonNull(failureReason, "failureReason must not be null");
         this.status = RefundStatus.FAILED;
