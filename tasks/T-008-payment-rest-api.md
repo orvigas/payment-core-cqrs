@@ -1,9 +1,9 @@
 ---
 id: T-008
 title: Payment REST API
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: general
+branch: task/T-008-payment-rest-api
 depends-on: [T-003, T-004]
 ---
 
