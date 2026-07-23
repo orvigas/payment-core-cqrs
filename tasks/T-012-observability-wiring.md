@@ -1,9 +1,9 @@
 ---
 id: T-012
 title: Observability wiring (metrics, tracing, structured logs)
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: general
+branch: task/T-012-observability-wiring
 depends-on: []
 ---
 

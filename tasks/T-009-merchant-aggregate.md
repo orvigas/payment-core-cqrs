@@ -1,9 +1,9 @@
 ---
 id: T-009
 title: Merchant aggregate with onboarding and lifecycle commands
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: general
+branch: task/T-009-merchant-aggregate
 depends-on: [T-001, T-002]
 ---
 
