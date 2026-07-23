@@ -4,6 +4,8 @@ import com.orvigas.shared.id.CaptureId;
 import com.orvigas.shared.money.Money;
 import java.time.Instant;
 import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.Setter;
 
 /**
  * Capture entity inside the Payment aggregate. Represents an attempt to claim
@@ -11,6 +13,7 @@ import java.util.Objects;
  *
  * @author orvigas@gmail.com
  */
+@Setter(AccessLevel.PRIVATE)
 public class Capture {
 
     private final CaptureId captureId;

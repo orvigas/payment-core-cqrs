@@ -49,7 +49,7 @@ Binding rules for all production and test code in this repository. `ARCHITECTURE
 
 ## 7. Lombok
 
-Allowed: `@RequiredArgsConstructor`, `@Slf4j`, `@Builder` (on aggregates where records don't fit), `@Getter` on entity classes. Not allowed: `@Data` on entities (its generated `equals`/`hashCode` breaks on persistent identity), `@SneakyThrows`, `@Synchronized`, and `val`.
+Allowed: `@RequiredArgsConstructor`, `@Slf4j`, `@Setter` (private access for event-sourced aggregates), `@Builder` (on aggregates where records don't fit), `@Getter` on entity classes. Not allowed: `@Data` on entities (its generated `equals`/`hashCode` breaks on persistent identity), `@SneakyThrows`, `@Synchronized`, and `val`.
 
 ## 8. Comments and Documentation
 

@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
@@ -31,6 +32,7 @@ import org.axonframework.spring.stereotype.Aggregate;
  */
 @Aggregate
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Setter(AccessLevel.PRIVATE)
 public class Payment {
 
     @AggregateIdentifier
