@@ -1,5 +1,7 @@
 package com.orvigas.shared.money;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Currency;
 import java.util.Objects;
 
@@ -18,6 +20,7 @@ import java.util.Objects;
  * @param currency the ISO 4217 currency the amount is denominated in
  * @author orvigas@gmail.com
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record Money(long minorUnits, Currency currency) implements Comparable<Money> {
 
     /**
@@ -100,6 +103,7 @@ public record Money(long minorUnits, Currency currency) implements Comparable<Mo
      *
      * @return {@code true} if {@code minorUnits} is greater than zero
      */
+    @JsonIgnore
     public boolean isPositive() {
         return minorUnits > 0;
     }
@@ -109,6 +113,7 @@ public record Money(long minorUnits, Currency currency) implements Comparable<Mo
      *
      * @return {@code true} if {@code minorUnits} is zero
      */
+    @JsonIgnore
     public boolean isZero() {
         return minorUnits == 0;
     }

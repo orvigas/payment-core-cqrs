@@ -44,8 +44,34 @@ Prevention: covered structurally now (the fix is in `pom.xml`), and the harness'
 
 When bumping the Boot parent in the future, check every dependency whose artifact name encodes the Boot generation (`resilience4j-spring-boot4`, springdoc major line) and any starter the modularized autoconfiguration split out — a missing starter fails silently at runtime, not at compile time.
 
+## Found during T-008 Payment REST API (2026-07-22)
+
+### MongoDB UUID representation must be explicit
+
+Axon's MongoDB event store and Spring Data MongoDB's `MongoTemplate` both fail with `CodecConfigurationException: The uuidRepresentation has not been specified, so the UUID cannot be encoded.` when trying to store entities containing `java.util.UUID` fields (such as payment aggregate identifiers) unless `UuidRepresentation.STANDARD` is configured.
+
+Fix: register a `MongoClientSettingsBuilderCustomizer` bean that sets `uuidRepresentation(UuidRepresentation.STANDARD)`.
+
+In Spring Boot 4.1, the customizer interface moved to `org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer` (previously `org.springframework.boot.autoconfigure.mongo.MongoClientSettingsBuilderCustomizer` in Boot 3.x). The old package no longer exists — import the new one.
+
+The `spring.data.mongodb.uuid-representation: standard` property (used in Boot 3.x) does NOT take effect in Boot 4.1 because the property-based configuration path changed; only the programmatic customizer works reliably.
+
+### Jackson detects boolean `is*()` methods as extra properties on records
+
+When a record (or class) has methods named `isZero()` or `isPositive()`, Jackson's default property detection treats them as boolean properties `zero` and `positive`. These get serialized alongside the actual record components. When Axon's event store stores serialized events containing such types (e.g., `Money`) and replays them later, deserialization fails with `UnrecognizedPropertyException` because the auto-detected properties aren't constructor parameters.
+
+Fix: annotate `isZero()` and `isPositive()` with `@JsonIgnore`, and add `@JsonIgnoreProperties(ignoreUnknown = true)` at the class level to remain backward-compatible with events serialized before the fix (which contain the extra fields).
+
+### `@Transactional` is incompatible with multiple TransactionManager beans
+
+The `@Transactional` annotation on a service method fails when two `TransactionManager` beans exist (e.g., `mongoTransactionManager` from Axon and `connectionFactoryTransactionManager` from R2DBC). Spring cannot determine which one to use. In a CQRS/Axon project where event sourcing manages consistency, `@Transactional` on the service layer is neither needed nor safe — remove it.
+
+### Void-returning command handlers require `.then()` not `.map()`
+
+When a command handler returns `void` (as most aggregate handlers do), `commandGateway.send(command)` returns a `CompletableFuture<Object>` that completes with `null`. Using `Mono.fromFuture(future).map(result -> response)` silently produces an empty `Mono<Void>` because Reactor suppresses null values in `onNext`. The fix is `Mono.fromFuture(future).then(Mono.just(response))`.
+
 ## Keywords
 
-spring boot 4, upgrade, migration, spring kafka starter, springdoc 3, resilience4j-spring-boot4, WebFluxProperties, boot bom, lombok annotationProcessorPaths, javac JDK 23 annotation processor discovery, RequiredArgsConstructor silent no-op
+spring boot 4, upgrade, migration, spring kafka starter, springdoc 3, resilience4j-spring-boot4, WebFluxProperties, boot bom, lombok annotationProcessorPaths, javac JDK 23 annotation processor discovery, RequiredArgsConstructor silent no-op, mongodb uuid representation, MongoClientSettingsBuilderCustomizer, jackson isZero detection, void command handler Mono.fromFuture then
 
 Related: [[r2dbc-migration-gotchas]], [[distributed-tracing-observability-gotchas]]
