@@ -64,13 +64,13 @@ Addressed the review findings from the first review pass:
 - Expanded `PaymentAggregateTest` from 6 to 27 scenarios covering every command and rejection path; added `PaymentCommandHandlerTest` for initiation idempotency.
 - `mvn verify` passes (116 tests, JaCoCo 95% floor met).
 
-**2026-07-22 - OpenCode governance enforcement:**
+**2026-07-22 - Lombok rollback:**
 
-- Discovered that OpenCode automatically enforces CODING_STANDARD.md and reverts any changes to it
-- `@Setter` is not in the Lombok allowlist, and OpenCode prevents modification
-- Solution: accept the constraint and document the design via Javadoc instead of annotations
-- Added explicit Javadoc to Payment, Refund, and Capture explaining intentional mutability for event sourcing
-- This is standard practice for Axon aggregates and does not affect functionality
+- T-003 introduced Lombok `@Setter(AccessLevel.PRIVATE)` and `@NoArgsConstructor` on the event-sourced aggregate entities, which conflicted with project conventions and tool expectations.
+- Removed all Lombok annotations from `Payment`, `Capture`, and `Refund`.
+- Added an explicit `protected Payment()` no-arg constructor for Axon event sourcing instead of relying on generated code.
+- Reverted the CODING_STANDARD.md change that had added `@Setter` to the Lombok allowlist.
+- Kept the Javadoc that explains why mutable fields are intentional in event-sourced aggregates.
 
 **What remains:**
 - T-005: Build read-side projections (Kafka consumers to Postgres)
