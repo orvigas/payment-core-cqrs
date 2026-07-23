@@ -1,11 +1,15 @@
 package com.orvigas.payment;
 
+import com.orvigas.observability.PaymentMetrics;
 import com.orvigas.payment.idempotency.PaymentIdempotencyRepository;
 import com.orvigas.shared.id.PaymentId;
+import io.micrometer.core.instrument.Timer;
 import java.util.Objects;
 import java.util.Optional;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,14 +22,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentCommandHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentCommandHandler.class);
+
     private final PaymentIdempotencyRepository idempotencyRepository;
     private final CommandGateway commandGateway;
+    private final PaymentMetrics paymentMetrics;
 
     public PaymentCommandHandler(
             PaymentIdempotencyRepository idempotencyRepository,
-            CommandGateway commandGateway) {
+            CommandGateway commandGateway,
+            PaymentMetrics paymentMetrics) {
         this.idempotencyRepository = Objects.requireNonNull(idempotencyRepository, "idempotencyRepository must not be null");
         this.commandGateway = Objects.requireNonNull(commandGateway, "commandGateway must not be null");
+        this.paymentMetrics = Objects.requireNonNull(paymentMetrics, "paymentMetrics must not be null");
     }
 
     /**
@@ -39,9 +48,11 @@ public class PaymentCommandHandler {
      */
     @CommandHandler
     public PaymentId handle(InitiatePaymentCommand command) {
+        Timer.Sample sample = paymentMetrics.startTimer();
         Objects.requireNonNull(command, "command must not be null");
         Optional<PaymentId> existing = idempotencyRepository.findPaymentIdByIdempotencyKey(command.idempotencyKey());
         if (existing.isPresent()) {
+            paymentMetrics.stopTimer(sample);
             return existing.get();
         }
 
@@ -56,6 +67,9 @@ public class PaymentCommandHandler {
 
         commandGateway.sendAndWait(createCommand);
         idempotencyRepository.store(command.idempotencyKey(), command.paymentId());
+        paymentMetrics.recordPaymentInitiated();
+        paymentMetrics.stopTimer(sample);
+        log.debug("Payment initiated: {}", command.paymentId());
         return command.paymentId();
     }
 }

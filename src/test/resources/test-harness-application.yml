@@ -49,7 +49,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+    brave:
+      span-joining-enabled: false
 
 resilience4j:
   ratelimiter:
@@ -65,3 +74,4 @@ logging:
   level:
     root: WARN
     com.orvigas: INFO
+    reactor.netty: WARN

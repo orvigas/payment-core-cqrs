@@ -443,6 +443,7 @@
                                     </includes>
                                     <excludes>
                                         <exclude>com.orvigas.config.*</exclude>
+                                        <exclude>com.orvigas.observability.*</exclude>
                                         <!-- Bootstrap class; only executed by a full application start. -->
                                         <exclude>com.orvigas.PaymentCoreApplication</exclude>
                                     </excludes>
