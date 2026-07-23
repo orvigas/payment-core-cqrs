@@ -1,9 +1,9 @@
 ---
 id: T-003
 title: Payment aggregate with commands and events
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: backend-engineer
+branch: task/T-003-payment-aggregate
 depends-on: [T-001, T-002]
 ---
 
