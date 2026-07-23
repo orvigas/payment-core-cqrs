@@ -1,9 +1,9 @@
 ---
 id: T-007
 title: Kafka event publisher for payment domain events
-status: backlog
-owner: none
-branch: none
+status: in-progress
+owner: backend-engineer
+branch: task/T-007-payment-kafka-publisher
 depends-on: [T-003]
 ---
 
