@@ -2,6 +2,7 @@ package com.orvigas.security.support;
 
 import com.orvigas.support.AbstractIntegrationTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -14,8 +15,17 @@ import java.util.UUID;
  * credentials are not committed, and registers the user through the Spring
  * environment so the stub login service can authenticate it.
  *
+ * <p>{@code @DirtiesContext} is required here: every subclass inherits the same
+ * {@code registerTestUser} method, so Spring's context cache key treats them as
+ * identical and will happily reuse one subclass's context (and its already-bound
+ * password hash) for another subclass whose static fields have since been
+ * overwritten with a different random password. That mismatch surfaces as a
+ * spurious 401 on login. Forcing the context to close after each class prevents
+ * the reuse.
+ *
  * @author orvigas@gmail.com
  */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class AbstractSecurityIntegrationTest extends AbstractIntegrationTest {
 
     protected static final String TEST_USERNAME = "test-user";
